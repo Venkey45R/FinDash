@@ -22,3 +22,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment variables — NEVER commit these
+.env
+.env.*
+!.env.example
+server/.env
+
+# Test/scratch scripts with API keys
+test-gemini.cjs
+test-gemini-models.cjs
