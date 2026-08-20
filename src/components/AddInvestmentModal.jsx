@@ -67,7 +67,10 @@ const AddInvestmentModal = ({ isOpen, onClose }) => {
       };
       window.addEventListener('keydown', handleEsc);
       return () => {
-        document.body.style.overflow = 'auto';
+        // Only restore scroll if no sidebar is open
+        if (!document.body.classList.contains('sidebar-open')) {
+          document.body.style.overflow = '';
+        }
         window.removeEventListener('keydown', handleEsc);
       };
     }

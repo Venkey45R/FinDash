@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useFinance } from '../context/FinanceContext.jsx';
 import { generateHealthReport } from '../services/aiService.js';
 import { ShieldCheck, Activity, TrendingUp, AlertTriangle, Loader2, RefreshCcw, Zap } from 'lucide-react';
@@ -9,6 +9,26 @@ const AIAdvisorView = () => {
   const [report, setReport] = useState(null);
   const [error, setError] = useState(null);
   const [lastFetched, setLastFetched] = useState(null);
+
+  const handleGenerateReport = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = { networthHistory, assetCategories, liabilityCategories };
+      const result = await generateHealthReport(data);
+      setReport(result);
+      
+      const now = new Date();
+      setLastFetched(now);
+      localStorage.setItem('aiAdvisorReport', JSON.stringify(result));
+      localStorage.setItem('aiAdvisorDate', now.toISOString());
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Failed to generate report.');
+    } finally {
+      setLoading(false);
+    }
+  }, [networthHistory, assetCategories, liabilityCategories]);
 
   useEffect(() => {
     const cachedData = localStorage.getItem('aiAdvisorReport');
@@ -30,27 +50,7 @@ const AIAdvisorView = () => {
         setLastFetched(parsedDate);
       }
     }
-  }, [networthHistory, assetCategories, liabilityCategories]); // Trigger when finance data is ready if we need to auto-fetch
-
-  const handleGenerateReport = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = { networthHistory, assetCategories, liabilityCategories };
-      const result = await generateHealthReport(data);
-      setReport(result);
-      
-      const now = new Date();
-      setLastFetched(now);
-      localStorage.setItem('aiAdvisorReport', JSON.stringify(result));
-      localStorage.setItem('aiAdvisorDate', now.toISOString());
-    } catch (err) {
-      console.error(err);
-      setError(err.message || 'Failed to generate report.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [networthHistory, assetCategories, liabilityCategories, handleGenerateReport]);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 w-full max-w-4xl mx-auto space-y-6">

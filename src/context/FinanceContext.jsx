@@ -402,7 +402,7 @@ export const FinanceProvider = ({ children }) => {
       showToast(err.message, 'error');
       throw err;
     }
-  }, [showToast, state.assetCategories]);
+  }, [showToast]);
 
   const addEntry = useCallback(async (categoryId, entryData) => {
     try {
@@ -485,7 +485,7 @@ export const FinanceProvider = ({ children }) => {
       showToast(err.message, 'error');
       throw err;
     }
-  }, [showToast, state.assetCategories]);
+  }, [showToast]);
 
   const updateEntry = useCallback(async (categoryId, entryId, updates) => {
     try {
@@ -512,7 +512,7 @@ export const FinanceProvider = ({ children }) => {
       showToast(err.message, 'error');
       throw err;
     }
-  }, [showToast, state.assetCategories]);
+  }, [showToast]);
 
   const deleteEntry = useCallback(async (categoryId, entryId) => {
     // Implement soft-delete / undo functionality
@@ -625,7 +625,7 @@ export const FinanceProvider = ({ children }) => {
       showToast(err.message, 'error');
       throw err;
     }
-  }, [showToast, state.liabilityCategories]);
+  }, [showToast]);
 
   const updateLiabilityEntry = useCallback(async (categoryId, entryId, updates) => {
     try {
@@ -652,7 +652,7 @@ export const FinanceProvider = ({ children }) => {
       showToast(err.message, 'error');
       throw err;
     }
-  }, [showToast, state.liabilityCategories]);
+  }, [showToast]);
 
   const deleteLiabilityEntry = useCallback(async (categoryId, entryId) => {
     // Implement soft-delete / undo functionality
@@ -857,7 +857,7 @@ export const FinanceProvider = ({ children }) => {
       {children}
       {/* Toast notification */}
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-[100] px-4 py-3 rounded-lg shadow-lg text-sm font-medium transition-all duration-300 animate-slide-up flex items-center gap-3 ${
+        <div className={`fixed bottom-24 right-6 z-[100] px-4 py-3 rounded-lg shadow-lg text-sm font-medium transition-all duration-300 animate-slide-up flex items-center gap-3 ${
           toast.type === 'error'
             ? 'bg-red-600 text-white'
             : 'bg-teal-600 text-white'
