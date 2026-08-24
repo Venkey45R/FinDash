@@ -14,5 +14,11 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      onwarn(warning, warn) {
+        // Ignore all warnings during build to prevent Rolldown binding errors on Vercel
+        return;
+      }
+    }
   },
 })
