@@ -16,6 +16,9 @@ import {
 } from '../services/api';
 import { searchCatalog } from '../data/instrumentsData';
 import { saveState, loadState } from '../utils/idb';
+import { budgetApi } from '../services/budgetApi';
+import { transactionApi } from '../services/transactionApi';
+import { useMemo } from 'react';
 
 const STORAGE_KEY = 'pfd_state_v3';
 
@@ -26,10 +29,14 @@ const UPDATE_ASSET_CATEGORY = 'UPDATE_ASSET_CATEGORY';
 const SET_LIABILITY_CATEGORIES = 'SET_LIABILITY_CATEGORIES';
 const UPDATE_LIABILITY_CATEGORY = 'UPDATE_LIABILITY_CATEGORY';
 const SET_NETWORTH_HISTORY = 'SET_NETWORTH_HISTORY';
+const SET_BUDGETS = 'SET_BUDGETS';
+const SET_TRANSACTIONS = 'SET_TRANSACTIONS';
+const SET_INCOME_CATEGORIES = 'SET_INCOME_CATEGORIES';
 
 const defaultFallbackState = {
   user: { name: 'Venkatesh', email: 'venkatesh@example.com' },
   networthHistory: [],
+  budgets: [],
   assetCategories: [
     {
       _id: 'cat_dom_equity',
@@ -157,6 +164,7 @@ const initialState = {
   assetCategories: [],
   liabilityCategories: [],
   syncStatus: null,
+  totalBalance: 0,
 };
 
 function financeReducer(state, action) {
@@ -192,6 +200,9 @@ function financeReducer(state, action) {
 
     case SET_NETWORTH_HISTORY:
       return { ...state, networthHistory: action.payload };
+
+    case 'SET_TOTAL_BALANCE':
+      return { ...state, totalBalance: action.payload };
 
     default:
       return state;
@@ -253,12 +264,13 @@ export const FinanceProvider = ({ children }) => {
 
         // Fetch fresh from API
         try {
-          const [userData, historyData, assetData, liabilityData, syncStatusData] = await Promise.all([
+          const [userData, historyData, assetData, liabilityData, syncStatusData, balanceData] = await Promise.all([
             fetchUser(),
             fetchNetWorthHistory(),
             fetchAssetCategories(),
             fetchLiabilityCategories(),
             apiFetchSyncStatus().catch(() => null),
+            transactionApi.getBalance().catch(() => 0),
           ]);
 
           const freshState = {
@@ -267,6 +279,7 @@ export const FinanceProvider = ({ children }) => {
             assetCategories: assetData,
             liabilityCategories: liabilityData,
             syncStatus: syncStatusData,
+            totalBalance: balanceData,
           };
 
           dispatch({ type: SET_DATA, payload: freshState });
@@ -337,7 +350,7 @@ export const FinanceProvider = ({ children }) => {
           const cleanName = (investmentData.name || '').trim().toLowerCase();
           const existingEntryIndex = (cat.entries || []).findIndex(
             (e) => (e.name && e.name.trim().toLowerCase() === cleanName) ||
-                   (investmentData.symbol && e.symbol && e.symbol.toUpperCase() === investmentData.symbol.toUpperCase())
+              (investmentData.symbol && e.symbol && e.symbol.toUpperCase() === investmentData.symbol.toUpperCase())
           );
 
           if (existingEntryIndex >= 0) {
@@ -419,7 +432,7 @@ export const FinanceProvider = ({ children }) => {
           const cleanName = (entryData.name || '').trim().toLowerCase();
           const existingIndex = (cat.entries || []).findIndex(
             (e) => (e.name && e.name.trim().toLowerCase() === cleanName) ||
-                   (entryData.symbol && e.symbol && e.symbol.toUpperCase() === entryData.symbol.toUpperCase())
+              (entryData.symbol && e.symbol && e.symbol.toUpperCase() === entryData.symbol.toUpperCase())
           );
 
           const numInvested = Number(entryData.investedAmount) || 0;
@@ -518,7 +531,7 @@ export const FinanceProvider = ({ children }) => {
     // Implement soft-delete / undo functionality
     const cat = stateRef.current.assetCategories.find((c) => c._id === categoryId);
     if (!cat) return;
-    
+
     const entryToDelete = cat.entries.find((e) => e._id === entryId);
     if (!entryToDelete) return;
 
@@ -528,7 +541,7 @@ export const FinanceProvider = ({ children }) => {
     dispatch({ type: UPDATE_ASSET_CATEGORY, payload: updatedCat });
 
     let isUndone = false;
-    
+
     // Show undo toast
     showToast(`Deleted ${entryToDelete.name}`, 'success', {
       label: 'Undo',
@@ -543,14 +556,14 @@ export const FinanceProvider = ({ children }) => {
     // Wait for 5 seconds to give user time to undo
     setTimeout(async () => {
       if (isUndone) return;
-      
+
       try {
         await apiDeleteEntry(categoryId, entryId);
       } catch (apiErr) {
         // Ignore api errors for soft-delete background tasks
       }
     }, 5000);
-    
+
     return { category: updatedCat };
   }, [showToast]);
 
@@ -658,7 +671,7 @@ export const FinanceProvider = ({ children }) => {
     // Implement soft-delete / undo functionality
     const cat = stateRef.current.liabilityCategories.find((c) => c._id === categoryId);
     if (!cat) return;
-    
+
     const entryToDelete = cat.entries.find((e) => e._id === entryId);
     if (!entryToDelete) return;
 
@@ -668,7 +681,7 @@ export const FinanceProvider = ({ children }) => {
     dispatch({ type: UPDATE_LIABILITY_CATEGORY, payload: updatedCat });
 
     let isUndone = false;
-    
+
     // Show undo toast
     showToast(`Deleted ${entryToDelete.name}`, 'success', {
       label: 'Undo',
@@ -683,14 +696,14 @@ export const FinanceProvider = ({ children }) => {
     // Wait for 5 seconds to give user time to undo
     setTimeout(async () => {
       if (isUndone) return;
-      
+
       try {
         await apiDeleteLiabilityEntry(categoryId, entryId);
       } catch (apiErr) {
         // Ignore api errors for soft-delete background tasks
       }
     }, 5000);
-    
+
     return { category: updatedCat };
   }, [showToast]);
 
@@ -713,7 +726,7 @@ export const FinanceProvider = ({ children }) => {
         const count = result.syncResult?.totalUpdated || 0;
         showToast(
           isAutoTrigger
-            ? `[4:00 PM Auto-Sync] Updated ${count} mutual funds & stocks!`
+            ? `[3:45 PM Auto-Sync] Updated ${count} mutual funds & stocks!`
             : `Synced market prices & NAVs! ${count} holdings updated.`
         );
         return result;
@@ -723,8 +736,9 @@ export const FinanceProvider = ({ children }) => {
         let localUpdatedCount = 0;
         const updatedCategories = (stateRef.current.assetCategories || []).map((cat) => {
           const updatedEntries = (cat.entries || []).map((entry) => {
-            const isStockOrETF = entry.quantity > 0 && entry.averageBuyPrice > 0;
-            const isMF = entry.units > 0 && entry.averageNAV > 0;
+            const sub = entry.subCategory || 'OTHER';
+            const isStockOrETF = sub === 'STOCKS' || sub === 'ETFS' || (sub === 'OTHER' && entry.quantity > 0 && entry.averageBuyPrice > 0 && !(entry.units > 0 && entry.averageNAV > 0));
+            const isMF = sub === 'MUTUAL_FUNDS' || (sub === 'OTHER' && entry.units > 0 && entry.averageNAV > 0);
 
             if (isStockOrETF) {
               const matches = searchCatalog(entry.symbol || entry.name);
@@ -778,7 +792,7 @@ export const FinanceProvider = ({ children }) => {
         dispatch({ type: SET_ASSET_CATEGORIES, payload: updatedCategories });
         showToast(
           isAutoTrigger
-            ? `[4:00 PM Auto-Sync] Updated ${localUpdatedCount} mutual funds & stocks!`
+            ? `[3:45 PM Auto-Sync] Updated ${localUpdatedCount} mutual funds & stocks!`
             : `Synced market prices & NAVs! ${localUpdatedCount} holdings updated.`
         );
         return { success: true, totalUpdated: localUpdatedCount };
@@ -791,7 +805,7 @@ export const FinanceProvider = ({ children }) => {
     }
   }, [showToast]); // removed state.assetCategories from deps using stateRef
 
-  // ─── 4:00 PM (16:00 IST) Daily Auto-Sync Timer in Browser ───
+  // ─── 3:45 PM (15:45 IST) Daily Auto-Sync Timer in Browser ───
   // Use a ref for syncPrices to prevent useEffect re-triggering (fixes #9)
   const syncPricesRef = useRef(syncPrices);
   useEffect(() => {
@@ -801,16 +815,16 @@ export const FinanceProvider = ({ children }) => {
   useEffect(() => {
     let timerId = null;
 
-    const scheduleNext4PM = () => {
+    const scheduleNext345PM = () => {
       const now = new Date();
       // IST offset is UTC+5:30
       const utcNow = now.getTime() + now.getTimezoneOffset() * 60000;
       const istNow = new Date(utcNow + 5.5 * 3600000);
 
       const targetIST = new Date(istNow);
-      targetIST.setHours(16, 0, 0, 0);
+      targetIST.setHours(15, 45, 0, 0);
 
-      // If already past 4:00 PM IST today, set for tomorrow 4:00 PM
+      // If already past 3:45 PM IST today, set for tomorrow 3:45 PM
       if (istNow.getTime() >= targetIST.getTime()) {
         targetIST.setDate(targetIST.getDate() + 1);
       }
@@ -818,22 +832,49 @@ export const FinanceProvider = ({ children }) => {
       const delayMs = targetIST.getTime() - istNow.getTime();
 
       timerId = setTimeout(async () => {
-        console.log('[FinanceContext] 4:00 PM IST reached! Auto-syncing mutual fund NAVs and stock prices...');
+        console.log('[FinanceContext] 3:45 PM IST reached! Auto-syncing mutual fund NAVs and stock prices...');
         await syncPricesRef.current(true);
         // Schedule next day
-        scheduleNext4PM();
+        scheduleNext345PM();
       }, Math.max(delayMs, 1000));
     };
 
-    scheduleNext4PM();
+    scheduleNext345PM();
 
     return () => {
       if (timerId) clearTimeout(timerId);
     };
   }, []);
 
+  const totalBalance = state.totalBalance || 0;
+
+  const syncedAssetCategories = useMemo(() => {
+    if (!state.assetCategories) return [];
+    return state.assetCategories.map(cat => {
+      if (cat._id === 'cat_cash' || cat.name === 'Cash') {
+        return {
+          ...cat,
+          entries: [
+            {
+              _id: 'entry_synced_balance',
+              name: 'Tracking Balance',
+              investedAmount: totalBalance,
+              currentValue: totalBalance,
+            }
+          ]
+        };
+      }
+      return cat;
+    });
+  }, [state.assetCategories, totalBalance]);
+
+  const updateTotalBalance = useCallback((newBalance) => {
+    dispatch({ type: 'SET_TOTAL_BALANCE', payload: newBalance });
+  }, []);
+
   const value = {
     ...state,
+    assetCategories: syncedAssetCategories,
     loading,
     error,
     toast,
@@ -850,6 +891,8 @@ export const FinanceProvider = ({ children }) => {
     addLiabilityEntry,
     updateLiabilityEntry,
     deleteLiabilityEntry,
+    totalBalance,
+    updateTotalBalance,
   };
 
   return (
@@ -857,11 +900,10 @@ export const FinanceProvider = ({ children }) => {
       {children}
       {/* Toast notification */}
       {toast && (
-        <div className={`fixed bottom-24 right-6 z-[100] px-4 py-3 rounded-lg shadow-lg text-sm font-medium transition-all duration-300 animate-slide-up flex items-center gap-3 ${
-          toast.type === 'error'
+        <div className={`fixed bottom-24 right-6 z-[100] px-4 py-3 rounded-lg shadow-lg text-sm font-medium transition-all duration-300 animate-slide-up flex items-center gap-3 ${toast.type === 'error'
             ? 'bg-red-600 text-white'
             : 'bg-teal-600 text-white'
-        }`}>
+          }`}>
           <span>{toast.message}</span>
           {toast.action && (
             <button

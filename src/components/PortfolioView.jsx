@@ -30,9 +30,9 @@ const PortfolioView = () => {
     <section>
       {/* Portfolio Value Section */}
       <div className="mb-10">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-6">
           <h3 className="text-base font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Portfolio Value</h3>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <h2 className="text-base font-bold text-gray-900 dark:text-white tracking-tight leading-none">{formatINR(totalAssets)}</h2>
             <div className={`flex items-center gap-1.5 ${totals.gainLoss >= 0 ? 'text-teal-600 dark:text-teal-400' : 'text-rose-500 dark:text-rose-400'} text-sm font-bold`}>
               {totals.gainLoss >= 0 ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}

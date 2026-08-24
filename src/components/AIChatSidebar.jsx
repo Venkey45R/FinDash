@@ -5,7 +5,7 @@ import { createAdvisorChat } from '../services/aiService.js';
 import ReactMarkdown from 'react-markdown';
 
 const AIChatSidebar = ({ isOpen, onClose }) => {
-  const { networthHistory, assetCategories, liabilityCategories } = useFinance();
+  const { networthHistory, assetCategories, liabilityCategories, budgets, transactions } = useFinance();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,7 +17,7 @@ const AIChatSidebar = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (isOpen && !chatSession) {
       try {
-        const data = { networthHistory, assetCategories, liabilityCategories };
+        const data = { networthHistory, assetCategories, liabilityCategories, budgets, transactions };
         const session = createAdvisorChat(data);
         setChatSession(session);
         setMessages([
@@ -29,7 +29,7 @@ const AIChatSidebar = ({ isOpen, onClose }) => {
         setError(err.message || 'Failed to initialize chat');
       }
     }
-  }, [isOpen, chatSession, networthHistory, assetCategories, liabilityCategories]);
+  }, [isOpen, chatSession, networthHistory, assetCategories, liabilityCategories, budgets, transactions]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

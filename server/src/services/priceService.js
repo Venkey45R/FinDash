@@ -113,6 +113,8 @@ const SCHEME_CODE_MAP = {
   'INF200K01372': '119598',
   'AXISSMALL': '125354',
   'INF846K01CV7': '125354',
+  'MOTILAL OSWAL NIFTY MIDCAP 150': '147621',
+  'INF247L01908': '147621',
 };
 
 /**
@@ -244,92 +246,110 @@ async function syncAllAssetPrices() {
 
   let totalUpdated = 0;
   const syncResults = [];
+  const modifiedCategories = new Set();
+  
+  // 1. Collect all update tasks
+  const updateTasks = [];
 
   for (const category of categories) {
-    let categoryModified = false;
-
     for (const entry of (category.entries || [])) {
+      const sub = entry.subCategory || 'OTHER';
+
       const isStockOrETF =
-        entry.subCategory === 'STOCKS' ||
-        entry.subCategory === 'ETFS' ||
-        (entry.quantity > 0 && entry.averageBuyPrice > 0);
+        sub === 'STOCKS' ||
+        sub === 'ETFS' ||
+        (sub === 'OTHER' && entry.quantity > 0 && entry.averageBuyPrice > 0 && !(entry.units > 0 && entry.averageNAV > 0));
 
       const isMF =
-        entry.subCategory === 'MUTUAL_FUNDS' ||
-        (entry.units > 0 && entry.averageNAV > 0);
+        sub === 'MUTUAL_FUNDS' ||
+        (sub === 'OTHER' && entry.units > 0 && entry.averageNAV > 0);
 
-      if (isStockOrETF && entry.quantity > 0) {
-        const symbolToLookup = entry.symbol || entry.name;
-        const stockResult = await fetchStockPrice(symbolToLookup, entry.exchange || 'NSE');
+      if ((isStockOrETF && entry.quantity > 0) || (isMF && entry.units > 0)) {
+        updateTasks.push(async () => {
+          if (isStockOrETF) {
+            const symbolToLookup = entry.symbol || entry.name;
+            const stockResult = await fetchStockPrice(symbolToLookup, entry.exchange || 'NSE');
 
-        if (stockResult && stockResult.price > 0) {
-          const oldVal = entry.currentValue || entry.investedAmount;
-          const newVal = parseFloat((entry.quantity * stockResult.price).toFixed(2));
+            if (stockResult && stockResult.price > 0) {
+              const oldVal = entry.currentValue || entry.investedAmount;
+              const newVal = parseFloat((entry.quantity * stockResult.price).toFixed(2));
 
-          entry.latestPrice = stockResult.price;
-          entry.currentPrice = stockResult.price;
-          entry.previousClose = stockResult.previousClose;
-          entry.dailyChange = stockResult.change;
-          entry.dailyChangePercent = stockResult.changePercent;
-          entry.currentValue = newVal;
-          entry.lastPriceUpdated = new Date();
-          entry.valuationType = 'MARKET';
-          categoryModified = true;
-          totalUpdated++;
+              entry.latestPrice = stockResult.price;
+              entry.currentPrice = stockResult.price;
+              entry.previousClose = stockResult.previousClose;
+              entry.dailyChange = stockResult.change;
+              entry.dailyChangePercent = stockResult.changePercent;
+              entry.currentValue = newVal;
+              entry.lastPriceUpdated = new Date();
+              entry.valuationType = 'MARKET';
+              
+              modifiedCategories.add(category);
+              totalUpdated++;
 
-          syncResults.push({
-            name: entry.name,
-            symbol: entry.symbol,
-            type: 'STOCK/ETF',
-            oldValue: oldVal,
-            newValue: newVal,
-            price: stockResult.price,
-            previousClose: stockResult.previousClose,
-            dailyChange: stockResult.change,
-            dailyChangePercent: stockResult.changePercent,
-            dayGainLoss: parseFloat((entry.quantity * stockResult.change).toFixed(2)),
-          });
-        }
-      } else if (isMF && entry.units > 0) {
-        const mfResult = await fetchMutualFundNAV(entry.name, entry.isin || null);
+              syncResults.push({
+                name: entry.name,
+                symbol: entry.symbol,
+                type: 'STOCK/ETF',
+                oldValue: oldVal,
+                newValue: newVal,
+                price: stockResult.price,
+                previousClose: stockResult.previousClose,
+                dailyChange: stockResult.change,
+                dailyChangePercent: stockResult.changePercent,
+                dayGainLoss: parseFloat((entry.quantity * stockResult.change).toFixed(2)),
+              });
+            }
+          } else if (isMF) {
+            const mfResult = await fetchMutualFundNAV(entry.name, entry.isin || null);
 
-        if (mfResult && mfResult.nav > 0) {
-          const oldVal = entry.currentValue || entry.investedAmount;
-          const newVal = parseFloat((entry.units * mfResult.nav).toFixed(2));
+            if (mfResult && mfResult.nav > 0) {
+              const oldVal = entry.currentValue || entry.investedAmount;
+              const newVal = parseFloat((entry.units * mfResult.nav).toFixed(2));
 
-          entry.latestNAV = mfResult.nav;
-          entry.previousNAV = mfResult.previousNAV;
-          entry.dailyChange = mfResult.change;
-          entry.dailyChangePercent = mfResult.changePercent;
-          entry.navDate = mfResult.date;
-          entry.currentValue = newVal;
-          entry.lastPriceUpdated = new Date();
-          entry.valuationType = 'MARKET';
-          categoryModified = true;
-          totalUpdated++;
+              entry.latestNAV = mfResult.nav;
+              entry.previousNAV = mfResult.previousNAV;
+              entry.dailyChange = mfResult.change;
+              entry.dailyChangePercent = mfResult.changePercent;
+              entry.navDate = mfResult.date;
+              entry.currentValue = newVal;
+              entry.lastPriceUpdated = new Date();
+              entry.valuationType = 'MARKET';
+              
+              modifiedCategories.add(category);
+              totalUpdated++;
 
-          syncResults.push({
-            name: entry.name,
-            type: 'MUTUAL_FUND',
-            oldValue: oldVal,
-            newValue: newVal,
-            nav: mfResult.nav,
-            previousNAV: mfResult.previousNAV,
-            dailyChange: mfResult.change,
-            dailyChangePercent: mfResult.changePercent,
-            navDate: mfResult.date,
-            dayGainLoss: parseFloat((entry.units * mfResult.change).toFixed(2)),
-          });
-        }
+              syncResults.push({
+                name: entry.name,
+                type: 'MUTUAL_FUND',
+                oldValue: oldVal,
+                newValue: newVal,
+                nav: mfResult.nav,
+                previousNAV: mfResult.previousNAV,
+                dailyChange: mfResult.change,
+                dailyChangePercent: mfResult.changePercent,
+                navDate: mfResult.date,
+                dayGainLoss: parseFloat((entry.units * mfResult.change).toFixed(2)),
+              });
+            }
+          }
+        });
       }
     }
+  }
 
-    if (categoryModified) {
-      try {
-        await category.save();
-      } catch (saveErr) {
-        console.warn('[PriceService] Failed to save category:', saveErr.message);
-      }
+  // 2. Process tasks in chunks to avoid overwhelming APIs
+  const CHUNK_SIZE = 10;
+  for (let i = 0; i < updateTasks.length; i += CHUNK_SIZE) {
+    const chunk = updateTasks.slice(i, i + CHUNK_SIZE);
+    await Promise.allSettled(chunk.map(task => task()));
+  }
+
+  // 3. Save modified categories
+  for (const category of modifiedCategories) {
+    try {
+      await category.save();
+    } catch (saveErr) {
+      console.warn('[PriceService] Failed to save category:', saveErr.message);
     }
   }
 

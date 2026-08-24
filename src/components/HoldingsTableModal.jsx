@@ -212,6 +212,19 @@ const HoldingsTableModal = ({
       current = parseFloat(editFormData.currentValue) || invested;
     }
 
+    // Dirty check: skip API call if nothing changed
+    const nameUnchanged = (editFormData.name || entry.name) === entry.name;
+    const investedUnchanged = invested === (entry.investedAmount || 0);
+    const qtyUnchanged = qty === (entry.quantity || 0);
+    const priceUnchanged = price === (entry.averageBuyPrice || 0);
+    const unitsUnchanged = units === (entry.units || 0);
+    const navUnchanged = nav === (entry.averageNAV || 0);
+
+    if (nameUnchanged && investedUnchanged && qtyUnchanged && priceUnchanged && unitsUnchanged && navUnchanged) {
+      setInlineEditingId(null);
+      return;
+    }
+
     onEdit(categoryId, entry._id, {
       name: editFormData.name || entry.name,
       investedAmount: invested,

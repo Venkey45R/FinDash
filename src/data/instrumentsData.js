@@ -27,6 +27,7 @@ export const INDIAN_STOCKS = [
   { symbol: 'TITAN', name: 'Titan Company Limited', exchange: 'NSE', sector: 'Gems, Jewellery & Watches', isin: 'INE280A01028', price: 3480.00 },
   { symbol: 'ONGC', name: 'Oil & Natural Gas Corporation Limited', exchange: 'NSE', sector: 'Oil & Gas Exploration', isin: 'INE213A01029', price: 310.00 },
   { symbol: 'TATAMOTORS', name: 'Tata Motors Limited', exchange: 'NSE', sector: 'Automobile & EV', isin: 'INE155A01022', price: 995.00 },
+  { symbol: 'TMCV', name: 'Tata Motors Commercial Vehicles', exchange: 'NSE', sector: 'Automobile (Commercial)', isin: 'INE155A01030', price: 500.00 },
   { symbol: 'NTPC', name: 'NTPC Limited', exchange: 'NSE', sector: 'Power Generation & Utilities', isin: 'INE733E01010', price: 395.00 },
   { symbol: 'AXISBANK', name: 'Axis Bank Limited', exchange: 'NSE', sector: 'Banking & Financials', isin: 'INE238A01034', price: 1180.00 },
   { symbol: 'ADANIPORTS', name: 'Adani Ports & Special Economic Zone Ltd', exchange: 'NSE', sector: 'Port Infrastructure', isin: 'INE742F01042', price: 1480.00 },

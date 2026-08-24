@@ -7,6 +7,8 @@ const dashboardRoutes = require('./src/routes/dashboardRoutes');
 const assetRoutes = require('./src/routes/assetRoutes');
 const liabilityRoutes = require('./src/routes/liabilityRoutes');
 const { router: instrumentRoutes } = require('./src/routes/instrumentRoutes');
+const budgetRoutes = require('./src/routes/budgetRoutes');
+const transactionRoutes = require('./src/routes/transactionRoutes');
 const { initPriceScheduler } = require('./src/services/schedulerService');
 
 const app = express();
@@ -28,6 +30,8 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/assets', assetRoutes);
 app.use('/api/liabilities', liabilityRoutes);
 app.use('/api/instruments', instrumentRoutes);
+app.use('/api/budgets', budgetRoutes);
+app.use('/api/transactions', transactionRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

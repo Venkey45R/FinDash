@@ -94,7 +94,7 @@ const NetWorthChart = () => {
         </div>
 
         {/* Filter Buttons */}
-        <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-700/60 border border-gray-200 dark:border-gray-600 rounded-xl p-1 shrink-0 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-1 bg-gray-100 dark:bg-slate-700/60 border border-gray-200 dark:border-gray-600 rounded-xl p-1 shrink-0 self-start sm:self-auto w-full sm:w-auto">
           {filters.map((f) => (
             <button
               key={f.label}
@@ -112,9 +112,9 @@ const NetWorthChart = () => {
       </div>
 
       {/* Chart Area */}
-      <div className="w-full h-64 sm:h-72">
+      <div className="w-full h-64 sm:h-72 mt-2 sm:mt-0">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={filteredData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+          <AreaChart data={filteredData} margin={{ top: 10, right: 5, left: -15, bottom: 0 }}>
             <defs>
               <linearGradient id="netWorthTrendGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#0d9488" stopOpacity={isDark ? 0.35 : 0.2} />
@@ -128,13 +128,14 @@ const NetWorthChart = () => {
               tickLine={false}
               tick={{ fill: tickColor, fontSize: 11, fontWeight: 500 }}
               interval="preserveStartEnd"
+              minTickGap={20}
             />
             <YAxis
               axisLine={false}
               tickLine={false}
               tick={{ fill: tickColor, fontSize: 11 }}
               tickFormatter={formatYAxis}
-              width={65}
+              width={50}
             />
             <Tooltip
               contentStyle={{

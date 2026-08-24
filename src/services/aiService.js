@@ -12,7 +12,7 @@ const getApiKey = () => {
  * Compiles the raw context string from the FinanceContext data
  */
 export const buildFinancialContext = (data) => {
-  const { networthHistory = [], netWorthHistory = [], assetCategories = [], liabilityCategories = [] } = data;
+  const { networthHistory = [], netWorthHistory = [], assetCategories = [], liabilityCategories = [], budgets = [], transactions = [] } = data;
   const history = networthHistory.length > 0 ? networthHistory : netWorthHistory;
   
   const currentNetWorth = history.length > 0 ? history[history.length - 1].netWorth : 0;
@@ -40,6 +40,29 @@ export const buildFinancialContext = (data) => {
     return `  - Category: ${cat.name} (Total: ₹${catTotal})\n${entriesText}`;
   }).join('\n');
 
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth();
+  const currentYear = currentDate.getFullYear();
+
+  const budgetText = budgets.length > 0 ? budgets.map(b => {
+    const limit = parseFloat(b.amount) || 0;
+    const spent = transactions
+      .filter(t => {
+        if (t.type !== 'expense' || t.category !== b.name) return false;
+        const d = new Date(t.date);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      })
+      .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+      
+    const pct = limit > 0 ? Math.round((spent / limit) * 100) : 0;
+    return `  - ${b.name}: Limit ₹${limit}, Spent ₹${spent} (${pct}% used)`;
+  }).join('\n') : '  - None';
+
+  const txText = transactions.length > 0 ? transactions.slice(0, 50).map(t => {
+    const dateStr = t.date ? new Date(t.date).toLocaleDateString() : 'Unknown Date';
+    return `  - ${dateStr} | ${t.type} | ${t.category} | ₹${t.amount} | ${t.description || ''}`;
+  }).join('\n') : '  - None';
+
   return `
 USER FINANCIAL PORTFOLIO SUMMARY:
 --------------------------------
@@ -53,6 +76,12 @@ ${assetsText || 'None'}
 
 LIABILITIES:
 ${liabilitiesText || 'None'}
+
+BUDGETS:
+${budgetText}
+
+RECENT TRANSACTIONS (Up to 50):
+${txText}
 
 Instructions to AI: You are an expert financial advisor. Base all your responses strictly on the data provided above.
 `;

@@ -68,6 +68,18 @@ const LiabilitiesTableModal = ({
     const emi = parseFloat(editFormData.emi) || 0;
     const rate = parseFloat(editFormData.interestRate) || 0;
 
+    // Dirty check: skip API call if nothing changed
+    const nameUnchanged = (editFormData.name || entry.name) === entry.name;
+    const originalUnchanged = original === (entry.originalAmount || 0);
+    const outstandingUnchanged = outstanding === (entry.outstandingAmount || entry.originalAmount || 0);
+    const emiUnchanged = emi === (entry.emi || 0);
+    const rateUnchanged = rate === (entry.interestRate || 0);
+
+    if (nameUnchanged && originalUnchanged && outstandingUnchanged && emiUnchanged && rateUnchanged) {
+      setInlineEditingId(null);
+      return;
+    }
+
     onEdit(categoryId, entry._id, {
       name: editFormData.name || entry.name,
       originalAmount: original,

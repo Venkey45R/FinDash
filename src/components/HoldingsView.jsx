@@ -208,11 +208,6 @@ const HoldingsView = () => {
                               <h5 className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors truncate">
                                 {group.label}
                               </h5>
-                              {!group.isDirectEntry && (
-                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 shrink-0">
-                                  {group.entries.length} {group.entries.length === 1 ? 'item' : 'items'}
-                                </span>
-                              )}
                             </div>
                             <span className="text-xs text-gray-400 dark:text-gray-500">
                               Invested: {formatINR(group.invested)}

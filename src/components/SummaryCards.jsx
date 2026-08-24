@@ -62,7 +62,7 @@ const SummaryCards = () => {
   const isPositiveGL = gainLoss >= 0;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(240px,1fr))]">
       {/* 1. Net Worth */}
       <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700 relative overflow-hidden transition-colors duration-300">
         <div className="flex items-center justify-between mb-1">
@@ -71,7 +71,7 @@ const SummaryCards = () => {
             <PieChart className="w-4 h-4 text-teal-600 dark:text-teal-400" />
           </div>
         </div>
-        <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">{formatINR(netWorth)}</h2>
+        <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight break-all">{formatINR(netWorth)}</h2>
         <div className="mt-3 flex items-center">
           {hasMoM ? (
             <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${
@@ -96,7 +96,7 @@ const SummaryCards = () => {
             <Wallet className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           </div>
         </div>
-        <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">{formatINR(totalAssets)}</h2>
+        <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight break-all">{formatINR(totalAssets)}</h2>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
           Invested: {formatINR(invested)}
         </p>
@@ -110,7 +110,7 @@ const SummaryCards = () => {
             <CreditCard className="w-4 h-4 text-rose-600 dark:text-rose-400" />
           </div>
         </div>
-        <h2 className="text-3xl font-extrabold text-rose-600 dark:text-rose-400 tracking-tight">{formatINR(totalLiabilities)}</h2>
+        <h2 className="text-2xl font-extrabold text-rose-600 dark:text-rose-400 tracking-tight break-all">{formatINR(totalLiabilities)}</h2>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
           Across {liabilityCategories.reduce((s, c) => s + (c.entries?.length || 0), 0)} debt accounts
         </p>
@@ -126,7 +126,7 @@ const SummaryCards = () => {
             <ArrowUpCircle className={`w-4 h-4 ${isPositiveGL ? 'text-teal-600 dark:text-teal-400' : 'text-red-500 dark:text-red-400'}`} />
           </div>
         </div>
-        <h2 className={`text-3xl font-extrabold tracking-tight ${
+        <h2 className={`text-2xl font-extrabold tracking-tight break-all ${
           isPositiveGL ? 'text-teal-600 dark:text-teal-400' : 'text-red-500 dark:text-red-400'
         }`}>
           {isPositiveGL ? '+' : ''}{formatINR(gainLoss)}

@@ -4,7 +4,7 @@ import { generateHealthReport } from '../services/aiService.js';
 import { ShieldCheck, Activity, TrendingUp, AlertTriangle, Loader2, RefreshCcw, Zap } from 'lucide-react';
 
 const AIAdvisorView = () => {
-  const { networthHistory, assetCategories, liabilityCategories } = useFinance();
+  const { networthHistory, assetCategories, liabilityCategories, budgets, transactions } = useFinance();
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState(null);
   const [error, setError] = useState(null);
@@ -14,7 +14,7 @@ const AIAdvisorView = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = { networthHistory, assetCategories, liabilityCategories };
+      const data = { networthHistory, assetCategories, liabilityCategories, budgets, transactions };
       const result = await generateHealthReport(data);
       setReport(result);
       
@@ -28,7 +28,7 @@ const AIAdvisorView = () => {
     } finally {
       setLoading(false);
     }
-  }, [networthHistory, assetCategories, liabilityCategories]);
+  }, [networthHistory, assetCategories, liabilityCategories, budgets, transactions]);
 
   useEffect(() => {
     const cachedData = localStorage.getItem('aiAdvisorReport');
@@ -50,7 +50,7 @@ const AIAdvisorView = () => {
         setLastFetched(parsedDate);
       }
     }
-  }, [networthHistory, assetCategories, liabilityCategories, handleGenerateReport]);
+  }, [networthHistory, assetCategories, liabilityCategories, budgets, transactions, handleGenerateReport]);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 w-full max-w-4xl mx-auto space-y-6">

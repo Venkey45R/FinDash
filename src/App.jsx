@@ -12,7 +12,11 @@ import ErrorBoundary from './components/ErrorBoundary.jsx';
 import SkeletonLoader from './components/SkeletonLoader.jsx';
 import AIAdvisorView from './components/AIAdvisorView.jsx';
 import AIChatSidebar from './components/AIChatSidebar.jsx';
-import { MessageSquare, Sparkles, X } from 'lucide-react';
+import BudgetSidebar from './components/BudgetSidebar.jsx';
+import TrackingSidebar from './components/TrackingSidebar.jsx';
+import { MessageSquare, Sparkles, X, Target, ReceiptText } from 'lucide-react';
+import { TransactionProvider } from './context/TransactionContext.jsx';
+import { BudgetProvider } from './context/BudgetContext.jsx';
 
 const getFormattedDate = () => {
   return new Date().toLocaleDateString('en-IN', {
@@ -27,8 +31,10 @@ const DashboardContent = () => {
   const { loading, error } = useFinance();
   const [chatOpen, setChatOpen] = React.useState(false);
   const [advisorOpen, setAdvisorOpen] = React.useState(false);
+  const [budgetOpen, setBudgetOpen] = React.useState(false);
+  const [trackingOpen, setTrackingOpen] = React.useState(false);
 
-  const sidebarOpen = chatOpen || advisorOpen;
+  const sidebarOpen = chatOpen || advisorOpen || budgetOpen || trackingOpen;
 
   // Lock body scroll when any sidebar is open; restore on close
   React.useEffect(() => {
@@ -74,7 +80,7 @@ const DashboardContent = () => {
 
   return (
     <div className={`w-full flex bg-[#f8f9fc] dark:bg-[#0f172a] ${sidebarOpen ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
-      <div id="dashboard-scroll-container" className={`flex flex-col flex-1 bg-white dark:bg-[#1e293b] transition-all duration-300 ${sidebarOpen ? 'h-full overflow-y-auto' : ''} ${advisorOpen ? 'md:mr-[600px] lg:mr-[800px]' : chatOpen ? 'md:mr-[500px]' : 'max-w-[1280px] mx-auto w-full shadow-sm'}`}>
+      <div id="dashboard-scroll-container" className={`flex flex-col flex-1 bg-white dark:bg-[#1e293b] transition-all duration-300 ${sidebarOpen ? 'h-full overflow-y-auto' : ''} ${advisorOpen ? 'md:mr-[600px] lg:mr-[800px]' : (budgetOpen || trackingOpen) ? 'md:mr-[500px] lg:mr-[600px]' : chatOpen ? 'md:mr-[500px]' : 'max-w-[1280px] mx-auto w-full shadow-sm'}`}>
         <Header />
         <main className="px-4 sm:px-8 py-6 flex-1">
         <div id="overview">
@@ -89,6 +95,40 @@ const DashboardContent = () => {
           {/* Summary Cards */}
           <div className="mb-8">
             <SummaryCards />
+          </div>
+
+          {/* Budget & Expense Tracking Boxes */}
+          <div id="budget-expenses" className="mb-8">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Planning & Tracking</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Budget Box */}
+              <div 
+                onClick={() => { setBudgetOpen(true); setTrackingOpen(false); setAdvisorOpen(false); setChatOpen(false); }}
+                className="group cursor-pointer bg-white dark:bg-slate-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700 hover:shadow-lg hover:border-teal-300 dark:hover:border-teal-700 transition-all duration-300 flex items-center gap-4"
+              >
+                <div className="w-14 h-14 bg-teal-50 dark:bg-teal-900/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                  <Target className="w-7 h-7 text-teal-600 dark:text-teal-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">FinDash Budgeting</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Set monthly limits and track your adherence over time.</p>
+                </div>
+              </div>
+
+              {/* Expense Box */}
+              <div 
+                onClick={() => { setTrackingOpen(true); setBudgetOpen(false); setAdvisorOpen(false); setChatOpen(false); }}
+                className="group cursor-pointer bg-white dark:bg-slate-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700 hover:shadow-lg hover:border-purple-300 dark:hover:border-purple-700 transition-all duration-300 flex items-center gap-4"
+              >
+                <div className="w-14 h-14 bg-purple-50 dark:bg-purple-900/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                  <ReceiptText className="w-7 h-7 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">FinDash Tracking</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Log daily expenses and incomes to monitor cashflow.</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Net Worth Trend Chart */}
@@ -117,7 +157,7 @@ const DashboardContent = () => {
       <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-4">
         {/* Insight Report Floater */}
         <button
-          onClick={() => setAdvisorOpen(true)}
+          onClick={() => { setAdvisorOpen(true); setBudgetOpen(false); setTrackingOpen(false); setChatOpen(false); }}
           className={`group relative p-4 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-white/50 dark:border-slate-700 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgba(16,185,129,0.3)] rounded-full transition-all duration-300 hover:-translate-y-1 overflow-hidden ${advisorOpen ? 'hidden' : 'flex'} items-center justify-center`}
         >
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -132,7 +172,7 @@ const DashboardContent = () => {
 
         {/* Chat Floater */}
         <button
-          onClick={() => setChatOpen(true)}
+          onClick={() => { setChatOpen(true); setAdvisorOpen(false); setTrackingOpen(false); setBudgetOpen(false); }}
           className={`group relative p-4 bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-[0_8px_30px_rgba(16,185,129,0.4)] rounded-full transition-all duration-300 hover:-translate-y-1 ${chatOpen ? 'hidden' : 'flex'} items-center justify-center`}
         >
           <MessageSquare className="w-6 h-6 text-white" />
@@ -146,7 +186,7 @@ const DashboardContent = () => {
       </div>
 
       {/* AI Advisor Sidebar */}
-      <div className={`fixed inset-y-0 right-0 z-50 w-full sm:w-[600px] lg:w-[800px] bg-slate-50 dark:bg-slate-950 shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-800 transition-transform transform duration-300 ${advisorOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div className={`fixed inset-y-0 right-0 z-50 w-full sm:w-[600px] lg:w-[800px] bg-slate-50 dark:bg-slate-950 shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-800 transition-transform transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${advisorOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="sticky top-0 z-10 flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
           <h2 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-emerald-500" /> FinDash Analysis
@@ -173,6 +213,12 @@ const DashboardContent = () => {
       {/* Slide-over Chat Sidebar */}
       <AIChatSidebar isOpen={chatOpen} onClose={() => setChatOpen(false)} />
 
+      {/* Slide-over Budget Sidebar */}
+      <BudgetSidebar isOpen={budgetOpen} onClose={() => setBudgetOpen(false)} />
+
+      {/* Slide-over Tracking Sidebar */}
+      <TrackingSidebar isOpen={trackingOpen} onClose={() => setTrackingOpen(false)} />
+
         <Footer />
       </div>
     </div>
@@ -183,7 +229,11 @@ function App() {
   return (
     <ErrorBoundary>
       <FinanceProvider>
-        <DashboardContent />
+        <TransactionProvider>
+          <BudgetProvider>
+            <DashboardContent />
+          </BudgetProvider>
+        </TransactionProvider>
       </FinanceProvider>
     </ErrorBoundary>
   );
