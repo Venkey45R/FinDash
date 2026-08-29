@@ -1,15 +1,23 @@
 const API_BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
 
+const getHeaders = (isJson = true) => {
+  const token = localStorage.getItem('fin-dash-token');
+  const headers = {};
+  if (isJson) headers['Content-Type'] = 'application/json';
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+};
+
 // ─── User & History (read-only) ───
 
 export const fetchUser = async () => {
-  const res = await fetch(`${API_BASE}/dashboard/user`);
+  const res = await fetch(`${API_BASE}/dashboard/user`, { headers: getHeaders(false) });
   if (!res.ok) throw new Error('Failed to fetch user');
   return res.json();
 };
 
 export const fetchNetWorthHistory = async () => {
-  const res = await fetch(`${API_BASE}/dashboard/networth-history`);
+  const res = await fetch(`${API_BASE}/dashboard/networth-history`, { headers: getHeaders(false) });
   if (!res.ok) throw new Error('Failed to fetch net worth history');
   return res.json();
 };
@@ -20,7 +28,7 @@ export const searchInstruments = async (query = '', type = '') => {
   const params = new URLSearchParams();
   if (query) params.append('q', query);
   if (type) params.append('type', type);
-  const res = await fetch(`${API_BASE}/instruments/search?${params.toString()}`);
+  const res = await fetch(`${API_BASE}/instruments/search?${params.toString()}`, { headers: getHeaders(false) });
   if (!res.ok) throw new Error('Failed to search instruments');
   return res.json();
 };
@@ -28,7 +36,7 @@ export const searchInstruments = async (query = '', type = '') => {
 // ─── Asset Categories & Investments (CRUD) ───
 
 export const fetchAssetCategories = async () => {
-  const res = await fetch(`${API_BASE}/assets`);
+  const res = await fetch(`${API_BASE}/assets`, { headers: getHeaders(false) });
   if (!res.ok) throw new Error('Failed to fetch asset categories');
   return res.json();
 };
@@ -36,7 +44,7 @@ export const fetchAssetCategories = async () => {
 export const addInvestment = async (investmentData) => {
   const res = await fetch(`${API_BASE}/assets/investment`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders(),
     body: JSON.stringify(investmentData),
   });
   if (!res.ok) {
@@ -49,7 +57,7 @@ export const addInvestment = async (investmentData) => {
 export const addEntry = async (categoryId, entryData) => {
   const res = await fetch(`${API_BASE}/assets/${categoryId}/entries`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders(),
     body: JSON.stringify(entryData),
   });
   if (!res.ok) {
@@ -62,7 +70,7 @@ export const addEntry = async (categoryId, entryData) => {
 export const updateEntry = async (categoryId, entryId, updates) => {
   const res = await fetch(`${API_BASE}/assets/${categoryId}/entries/${entryId}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders(),
     body: JSON.stringify(updates),
   });
   if (!res.ok) {
@@ -75,6 +83,7 @@ export const updateEntry = async (categoryId, entryId, updates) => {
 export const deleteEntry = async (categoryId, entryId) => {
   const res = await fetch(`${API_BASE}/assets/${categoryId}/entries/${entryId}`, {
     method: 'DELETE',
+    headers: getHeaders(false),
   });
   if (!res.ok) throw new Error('Failed to delete entry');
   return res.json();
@@ -83,7 +92,7 @@ export const deleteEntry = async (categoryId, entryId) => {
 // ─── Liability Categories (CRUD) ───
 
 export const fetchLiabilityCategories = async () => {
-  const res = await fetch(`${API_BASE}/liabilities`);
+  const res = await fetch(`${API_BASE}/liabilities`, { headers: getHeaders(false) });
   if (!res.ok) throw new Error('Failed to fetch liability categories');
   return res.json();
 };
@@ -91,7 +100,7 @@ export const fetchLiabilityCategories = async () => {
 export const addLiabilityEntry = async (categoryId, entryData) => {
   const res = await fetch(`${API_BASE}/liabilities/${categoryId}/entries`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders(),
     body: JSON.stringify(entryData),
   });
   if (!res.ok) {
@@ -104,7 +113,7 @@ export const addLiabilityEntry = async (categoryId, entryData) => {
 export const updateLiabilityEntry = async (categoryId, entryId, updates) => {
   const res = await fetch(`${API_BASE}/liabilities/${categoryId}/entries/${entryId}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders(),
     body: JSON.stringify(updates),
   });
   if (!res.ok) {
@@ -117,6 +126,7 @@ export const updateLiabilityEntry = async (categoryId, entryId, updates) => {
 export const deleteLiabilityEntry = async (categoryId, entryId) => {
   const res = await fetch(`${API_BASE}/liabilities/${categoryId}/entries/${entryId}`, {
     method: 'DELETE',
+    headers: getHeaders(false),
   });
   if (!res.ok) throw new Error('Failed to delete liability entry');
   return res.json();
@@ -127,7 +137,7 @@ export const deleteLiabilityEntry = async (categoryId, entryId) => {
 export const syncMarketPrices = async () => {
   const res = await fetch(`${API_BASE}/assets/sync-prices`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders(),
   });
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
@@ -137,7 +147,7 @@ export const syncMarketPrices = async () => {
 };
 
 export const fetchSyncStatus = async () => {
-  const res = await fetch(`${API_BASE}/assets/sync-status`);
+  const res = await fetch(`${API_BASE}/assets/sync-status`, { headers: getHeaders(false) });
   if (!res.ok) throw new Error('Failed to fetch sync status');
   return res.json();
 };
@@ -152,7 +162,7 @@ export const fetchLivePrice = async (symbol = '', type = '', name = '', exchange
     if (name) params.append('name', name);
     if (exchange) params.append('exchange', exchange);
 
-    const res = await fetch(`${API_BASE}/instruments/live-price?${params.toString()}`);
+    const res = await fetch(`${API_BASE}/instruments/live-price?${params.toString()}`, { headers: getHeaders(false) });
     if (res.ok) {
       const data = await res.json();
       if (data.success && data.price) {

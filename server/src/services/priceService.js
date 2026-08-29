@@ -113,8 +113,10 @@ const SCHEME_CODE_MAP = {
   'INF200K01372': '119598',
   'AXISSMALL': '125354',
   'INF846K01CV7': '125354',
-  'MOTILAL OSWAL NIFTY MIDCAP 150': '147621',
+  'MOTILAL OSWAL NIFTY MIDCAP 150 INDEX FUND - REGULAR': '147621',
+  'MOTILAL OSWAL NIFTY MIDCAP 150 INDEX FUND - DIRECT': '147622',
   'INF247L01908': '147621',
+  'INF247L01896': '147622',
 };
 
 /**
@@ -362,9 +364,56 @@ async function syncAllAssetPrices() {
   };
 }
 
+/**
+ * Process SIPs automatically. Should be called daily.
+ */
+async function processDailySips() {
+  console.log('[PriceService] Processing daily SIPs...');
+  try {
+    const today = new Date().getDate();
+    let sipCount = 0;
+    
+    // Find categories containing mutual funds (typically MUTUAL_FUNDS subCategory)
+    const categories = await AssetCategory.find({});
+    
+    for (const cat of categories) {
+      let isModified = false;
+      for (const entry of cat.entries) {
+        if (entry.isSip && entry.sipDate === today && entry.sipAmount > 0) {
+          // Use latest NAV, fallback to average NAV or current Price
+          const nav = entry.latestNAV || entry.averageNAV || entry.latestPrice || 1; 
+          const newUnits = entry.sipAmount / nav;
+          
+          entry.investedAmount = (entry.investedAmount || 0) + entry.sipAmount;
+          entry.units = (entry.units || 0) + newUnits;
+          entry.averageNAV = entry.investedAmount / entry.units;
+          
+          // Also update currentValue so it's fresh
+          entry.currentValue = parseFloat((entry.units * nav).toFixed(2));
+          
+          isModified = true;
+          sipCount++;
+          console.log(`[PriceService] Processed SIP for ${entry.name}: invested ₹${entry.sipAmount} @ NAV ${nav} -> added ${newUnits.toFixed(4)} units.`);
+        }
+      }
+      
+      if (isModified) {
+        await cat.save();
+      }
+    }
+    
+    console.log(`[PriceService] Processed ${sipCount} SIP(s) today.`);
+    return { success: true, processedCount: sipCount };
+  } catch (err) {
+    console.error('[PriceService] Error processing daily SIPs:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   fetchStockPrice,
   fetchMutualFundNAV,
   syncAllAssetPrices,
+  processDailySips,
 };
 

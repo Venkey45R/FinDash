@@ -1,4 +1,5 @@
 import React from 'react';
+import { Routes, Route } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
 import Header from './components/Header.jsx';
 import SummaryCards from './components/SummaryCards.jsx';
@@ -17,6 +18,11 @@ import TrackingSidebar from './components/TrackingSidebar.jsx';
 import { MessageSquare, Sparkles, X, Target, ReceiptText } from 'lucide-react';
 import { TransactionProvider } from './context/TransactionContext.jsx';
 import { BudgetProvider } from './context/BudgetContext.jsx';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
+import LandingPage from './pages/LandingPage.jsx';
+import LoginPage from './pages/LoginPage.jsx';
+import SignupPage from './pages/SignupPage.jsx';
+import OnboardingPage from './pages/OnboardingPage.jsx';
 
 const getFormattedDate = () => {
   return new Date().toLocaleDateString('en-IN', {
@@ -228,13 +234,27 @@ const DashboardContent = () => {
 function App() {
   return (
     <ErrorBoundary>
-      <FinanceProvider>
-        <TransactionProvider>
-          <BudgetProvider>
-            <DashboardContent />
-          </BudgetProvider>
-        </TransactionProvider>
-      </FinanceProvider>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/onboarding" element={
+          <ProtectedRoute>
+            <OnboardingPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <FinanceProvider>
+              <TransactionProvider>
+                <BudgetProvider>
+                  <DashboardContent />
+                </BudgetProvider>
+              </TransactionProvider>
+            </FinanceProvider>
+          </ProtectedRoute>
+        } />
+      </Routes>
     </ErrorBoundary>
   );
 }

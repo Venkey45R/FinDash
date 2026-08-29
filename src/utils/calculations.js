@@ -23,14 +23,14 @@ export const getEntryValue = (entry) => {
  * Get the invested (cost) value of an entry.
  */
 export const getEntryInvested = (entry) => {
-  if (entry?.investedAmount !== undefined && entry?.investedAmount !== null && !isNaN(entry.investedAmount) && Number(entry.investedAmount) > 0) {
-    return Number(entry.investedAmount);
-  }
   if (entry?.quantity && entry?.averageBuyPrice) {
     return Number(entry.quantity) * Number(entry.averageBuyPrice);
   }
   if (entry?.units && entry?.averageNAV) {
     return Number(entry.units) * Number(entry.averageNAV);
+  }
+  if (entry?.investedAmount !== undefined && entry?.investedAmount !== null && !isNaN(entry.investedAmount) && Number(entry.investedAmount) > 0) {
+    return Number(entry.investedAmount);
   }
   return Number(entry?.currentValue) || 0;
 };

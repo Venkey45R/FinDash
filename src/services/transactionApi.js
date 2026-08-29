@@ -1,15 +1,23 @@
 const API_BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
 
+const getHeaders = (isJson = true) => {
+  const token = localStorage.getItem('fin-dash-token');
+  const headers = {};
+  if (isJson) headers['Content-Type'] = 'application/json';
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+};
+
 export const transactionApi = {
   // Transactions
   getBalance: async () => {
-    const response = await fetch(`${API_BASE}/transactions/balance`);
+    const response = await fetch(`${API_BASE}/transactions/balance`, { headers: getHeaders(false) });
     if (!response.ok) throw new Error('Failed to fetch balance');
     const data = await response.json();
     return data.totalBalance;
   },
   getTransactions: async (page = 1, limit = 50) => {
-    const response = await fetch(`${API_BASE}/transactions?page=${page}&limit=${limit}`);
+    const response = await fetch(`${API_BASE}/transactions?page=${page}&limit=${limit}`, { headers: getHeaders(false) });
     if (!response.ok) throw new Error('Failed to fetch transactions');
     return response.json();
   },
@@ -17,7 +25,7 @@ export const transactionApi = {
   addTransaction: async (data) => {
     const response = await fetch(`${API_BASE}/transactions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders(),
       body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to add transaction');
@@ -27,7 +35,7 @@ export const transactionApi = {
   updateTransaction: async (id, data) => {
     const response = await fetch(`${API_BASE}/transactions/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders(),
       body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to update transaction');
@@ -37,6 +45,7 @@ export const transactionApi = {
   deleteTransaction: async (id) => {
     const response = await fetch(`${API_BASE}/transactions/${id}`, {
       method: 'DELETE',
+      headers: getHeaders(false),
     });
     if (!response.ok) throw new Error('Failed to delete transaction');
     return response.json();
@@ -44,7 +53,7 @@ export const transactionApi = {
 
   // Income Categories
   getIncomeCategories: async () => {
-    const response = await fetch(`${API_BASE}/transactions/income-categories`);
+    const response = await fetch(`${API_BASE}/transactions/income-categories`, { headers: getHeaders(false) });
     if (!response.ok) throw new Error('Failed to fetch income categories');
     return response.json();
   },
@@ -52,7 +61,7 @@ export const transactionApi = {
   addIncomeCategory: async (data) => {
     const response = await fetch(`${API_BASE}/transactions/income-categories`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders(),
       body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to add income category');
@@ -62,7 +71,7 @@ export const transactionApi = {
   updateIncomeCategory: async (id, data) => {
     const response = await fetch(`${API_BASE}/transactions/income-categories/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders(),
       body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to update income category');
@@ -72,6 +81,7 @@ export const transactionApi = {
   deleteIncomeCategory: async (id) => {
     const response = await fetch(`${API_BASE}/transactions/income-categories/${id}`, {
       method: 'DELETE',
+      headers: getHeaders(false),
     });
     if (!response.ok) throw new Error('Failed to delete income category');
     return response.json();

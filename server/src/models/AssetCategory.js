@@ -32,6 +32,11 @@ const entrySchema = new mongoose.Schema({
   units: { type: Number, default: 0 },
   averageNAV: { type: Number, default: 0 },
   purchaseDate: { type: Date, default: null },
+  
+  // SIP details
+  isSip: { type: Boolean, default: false },
+  sipAmount: { type: Number, default: 0 },
+  sipDate: { type: Number, default: 1 },
 
   // Market-derived metrics (populated when market ticks are ingested)
   latestPrice: { type: Number, default: null },

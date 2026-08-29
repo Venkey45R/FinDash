@@ -38,8 +38,36 @@ const reducer = (state, action) => {
       };
     case 'SET_TRANSACTIONS':
       return { ...state, transactions: action.payload };
+    case 'ADD_TRANSACTION':
+      return { ...state, transactions: [action.payload, ...state.transactions] };
+    case 'UPDATE_TRANSACTION':
+      return {
+        ...state,
+        transactions: state.transactions.map((t) =>
+          t._id === action.payload._id ? action.payload : t
+        ),
+      };
+    case 'DELETE_TRANSACTION':
+      return {
+        ...state,
+        transactions: state.transactions.filter((t) => t._id !== action.payload),
+      };
     case 'SET_INCOME_CATEGORIES':
       return { ...state, incomeCategories: action.payload };
+    case 'ADD_INCOME_CATEGORY':
+      return { ...state, incomeCategories: [...state.incomeCategories, action.payload] };
+    case 'UPDATE_INCOME_CATEGORY':
+      return {
+        ...state,
+        incomeCategories: state.incomeCategories.map((c) =>
+          c._id === action.payload._id ? action.payload : c
+        ),
+      };
+    case 'DELETE_INCOME_CATEGORY':
+      return {
+        ...state,
+        incomeCategories: state.incomeCategories.filter((c) => c._id !== action.payload),
+      };
     default:
       return state;
   }
@@ -101,55 +129,44 @@ export const TransactionProvider = ({ children }) => {
     fetchInitialData();
   }, [fetchInitialData]);
 
-  // CRUD actions...
+  // CRUD actions — use dedicated reducer actions to avoid stale closure bugs.
+  // Each callback only dispatches; the reducer reads the latest state internally.
   const addTransaction = useCallback(async (data) => {
     const res = await transactionApi.addTransaction(data);
-    dispatch({ type: 'SET_TRANSACTIONS', payload: [res, ...state.transactions] });
+    dispatch({ type: 'ADD_TRANSACTION', payload: res });
     syncBalance();
     return res;
-  }, [state.transactions, syncBalance]);
+  }, [syncBalance]);
 
   const updateTransaction = useCallback(async (id, data) => {
     const res = await transactionApi.updateTransaction(id, data);
-    dispatch({
-      type: 'SET_TRANSACTIONS',
-      payload: state.transactions.map((t) => (t._id === id ? res : t)),
-    });
+    dispatch({ type: 'UPDATE_TRANSACTION', payload: res });
     syncBalance();
     return res;
-  }, [state.transactions, syncBalance]);
+  }, [syncBalance]);
 
   const deleteTransaction = useCallback(async (id) => {
     await transactionApi.deleteTransaction(id);
-    dispatch({
-      type: 'SET_TRANSACTIONS',
-      payload: state.transactions.filter((t) => t._id !== id),
-    });
+    dispatch({ type: 'DELETE_TRANSACTION', payload: id });
     syncBalance();
-  }, [state.transactions, syncBalance]);
+  }, [syncBalance]);
 
   const addIncomeCategory = useCallback(async (name) => {
     const res = await transactionApi.addIncomeCategory({ name });
-    dispatch({ type: 'SET_INCOME_CATEGORIES', payload: [...state.incomeCategories, res] });
+    dispatch({ type: 'ADD_INCOME_CATEGORY', payload: res });
     return res;
-  }, [state.incomeCategories]);
+  }, []);
 
   const updateIncomeCategory = useCallback(async (id, name) => {
     const res = await transactionApi.updateIncomeCategory(id, { name });
-    dispatch({
-      type: 'SET_INCOME_CATEGORIES',
-      payload: state.incomeCategories.map((c) => (c._id === id ? res : c)),
-    });
+    dispatch({ type: 'UPDATE_INCOME_CATEGORY', payload: res });
     return res;
-  }, [state.incomeCategories]);
+  }, []);
 
   const deleteIncomeCategory = useCallback(async (id) => {
     await transactionApi.deleteIncomeCategory(id);
-    dispatch({
-      type: 'SET_INCOME_CATEGORIES',
-      payload: state.incomeCategories.filter((c) => c._id !== id),
-    });
-  }, [state.incomeCategories]);
+    dispatch({ type: 'DELETE_INCOME_CATEGORY', payload: id });
+  }, []);
 
   const value = {
     transactions: state.transactions,

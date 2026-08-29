@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const { syncAllAssetPrices } = require('./priceService');
+const { syncAllAssetPrices, processDailySips } = require('./priceService');
 const { recordDailyNetWorthSnapshot } = require('./netWorthService');
 
 let lastSyncTimestamp = null;
@@ -29,6 +29,7 @@ function initPriceScheduler() {
       console.log(`[SchedulerService] 3:45 PM IST triggered. Running daily price sync on ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}...`);
       try {
         const result = await syncAllAssetPrices();
+        await processDailySips(); // Automatically invest SIP amounts if it's the right day
         lastSyncTimestamp = new Date();
         lastSyncResult = result;
         console.log(`[SchedulerService] 3:45 PM price sync succeeded. Updated ${result.totalUpdated} holdings.`);
@@ -66,6 +67,7 @@ function initPriceScheduler() {
  */
 async function triggerManualSync() {
   const result = await syncAllAssetPrices();
+  await processDailySips();
   lastSyncTimestamp = new Date();
   lastSyncResult = result;
   await recordDailyNetWorthSnapshot();

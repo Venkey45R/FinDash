@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus,
   TrendingUp,
@@ -48,6 +48,9 @@ const HoldingsView = () => {
     entries: [],
   });
 
+  // Removed auto-sync on mount per user request. 
+  // It runs at 3:45 PM daily via backend and manually via the Sync button.
+
   const handleOpenTable = (category, groupTitle = '', entries = []) => {
     setTableModalState({
       isOpen: true,
@@ -57,6 +60,8 @@ const HoldingsView = () => {
       entries: entries.length > 0 ? entries : category.entries || [],
     });
   };
+
+
 
   const handleCloseTable = () => {
     setTableModalState({

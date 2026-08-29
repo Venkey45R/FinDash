@@ -37,11 +37,11 @@ const SummaryCards = () => {
     // Find a snapshot from roughly 30 days ago, or the oldest available if less than 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoStr = new Date(thirtyDaysAgo.getTime() - (thirtyDaysAgo.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
     
     let previousSnapshot = networthHistory[0];
     for (let i = networthHistory.length - 1; i >= 0; i--) {
-      const snapDate = new Date(networthHistory[i].dateString);
-      if (snapDate <= thirtyDaysAgo) {
+      if (networthHistory[i].dateString <= thirtyDaysAgoStr) {
         previousSnapshot = networthHistory[i];
         break;
       }
@@ -49,7 +49,8 @@ const SummaryCards = () => {
     
     const previous = previousSnapshot?.netWorth;
     // If it's the same day, don't show MoM
-    if (networthHistory.length === 1 && previousSnapshot.dateString === new Date().toISOString().split('T')[0]) {
+    const todayStr = new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+    if (networthHistory.length === 1 && previousSnapshot.dateString === todayStr) {
       return null;
     }
 

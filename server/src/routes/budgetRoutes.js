@@ -8,10 +8,7 @@ const User = require('../models/User');
  */
 router.get('/', async (req, res) => {
   try {
-    const user = await User.findOne();
-    if (!user) return res.status(404).json({ error: 'No user found' });
-
-    const budgets = await Budget.find({ userId: user._id }).sort({ createdAt: 1 });
+    const budgets = await Budget.find({ userId: req.userId }).sort({ createdAt: 1 });
     res.json(budgets);
   } catch (error) {
     console.error('Error fetching budgets:', error.message);
@@ -24,9 +21,6 @@ router.get('/', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    const user = await User.findOne();
-    if (!user) return res.status(404).json({ error: 'No user found' });
-
     const { name, amount } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Budget name is required' });
@@ -36,7 +30,7 @@ router.post('/', async (req, res) => {
     }
 
     const newBudget = new Budget({
-      userId: user._id,
+      userId: req.userId,
       name: name.trim(),
       amount: Number(amount),
       monthlyTracking: [],
@@ -62,8 +56,8 @@ router.put('/:id', async (req, res) => {
     if (amount !== undefined) updateData.amount = Number(amount);
     if (monthlyTracking !== undefined) updateData.monthlyTracking = monthlyTracking;
 
-    const updatedBudget = await Budget.findByIdAndUpdate(
-      req.params.id,
+    const updatedBudget = await Budget.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
       { $set: updateData },
       { new: true, runValidators: true }
     );
@@ -81,7 +75,7 @@ router.put('/:id', async (req, res) => {
  */
 router.delete('/:id', async (req, res) => {
   try {
-    const deletedBudget = await Budget.findByIdAndDelete(req.params.id);
+    const deletedBudget = await Budget.findOneAndDelete({ _id: req.params.id, userId: req.userId });
     if (!deletedBudget) return res.status(404).json({ error: 'Budget not found' });
     res.json({ message: 'Budget deleted successfully' });
   } catch (error) {

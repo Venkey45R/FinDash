@@ -34,128 +34,11 @@ const SET_TRANSACTIONS = 'SET_TRANSACTIONS';
 const SET_INCOME_CATEGORIES = 'SET_INCOME_CATEGORIES';
 
 const defaultFallbackState = {
-  user: { name: 'Venkatesh', email: 'venkatesh@example.com' },
+  user: null,
   networthHistory: [],
   budgets: [],
-  assetCategories: [
-    {
-      _id: 'cat_dom_equity',
-      name: 'Domestic Equity',
-      icon: 'TrendingUp',
-      color: 'bg-teal-500',
-      order: 1,
-      entries: [
-        { _id: 'entry_stocks', name: 'Portfolio Stocks', investedAmount: 65000, currentValue: 62500 },
-        { _id: 'entry_mf', name: 'Equity Mutual Fund', investedAmount: 90000, currentValue: 92502 },
-      ],
-    },
-    { _id: 'cat_foreign_equity', name: 'Foreign Equity', icon: 'Globe', color: 'bg-blue-500', order: 2, entries: [] },
-    {
-      _id: 'cat_debt',
-      name: 'Debt',
-      icon: 'Shield',
-      color: 'bg-indigo-500',
-      order: 3,
-      entries: [{ _id: 'entry_epf', name: 'EPF', investedAmount: 21600, currentValue: 21600 }],
-    },
-    {
-      _id: 'cat_gold',
-      name: 'Gold',
-      icon: 'Gem',
-      color: 'bg-amber-500',
-      order: 4,
-      entries: [{ _id: 'entry_gold', name: 'Gold Jewellery', investedAmount: 39620, currentValue: 48562 }],
-    },
-    {
-      _id: 'cat_cash',
-      name: 'Cash',
-      icon: 'Banknote',
-      color: 'bg-emerald-500',
-      order: 5,
-      entries: [
-        { _id: 'entry_savings', name: 'Savings Account', investedAmount: 17500, currentValue: 17500 },
-        { _id: 'entry_cash', name: 'Physical Cash', investedAmount: 1500, currentValue: 1500 },
-      ],
-    },
-  ],
-  liabilityCategories: [
-    {
-      _id: 'liab_home',
-      name: 'Home Loans',
-      icon: 'Home',
-      color: 'bg-rose-500',
-      order: 1,
-      entries: [
-        {
-          _id: 'entry_homeloan',
-          name: 'HDFC Housing Loan',
-          originalAmount: 2500000,
-          outstandingAmount: 1840000,
-          emi: 22500,
-          interestRate: 8.5,
-        },
-      ],
-    },
-    {
-      _id: 'liab_vehicle',
-      name: 'Vehicle Loans',
-      icon: 'Car',
-      color: 'bg-orange-500',
-      order: 2,
-      entries: [
-        {
-          _id: 'entry_carloan',
-          name: 'Car Loan (ICICI)',
-          originalAmount: 600000,
-          outstandingAmount: 210000,
-          emi: 12400,
-          interestRate: 9.2,
-        },
-      ],
-    },
-    {
-      _id: 'liab_personal',
-      name: 'Personal & Consumer Loans',
-      icon: 'GraduationCap',
-      color: 'bg-purple-500',
-      order: 3,
-      entries: [
-        {
-          _id: 'entry_eduloan',
-          name: 'Education Loan (SBI)',
-          originalAmount: 400000,
-          outstandingAmount: 150000,
-          emi: 7500,
-          interestRate: 10.5,
-        },
-      ],
-    },
-    {
-      _id: 'liab_cards',
-      name: 'Credit Cards',
-      icon: 'CreditCard',
-      color: 'bg-red-500',
-      order: 4,
-      entries: [
-        {
-          _id: 'entry_card_hdfc',
-          name: 'HDFC Millennia Credit Card',
-          originalAmount: 150000,
-          outstandingAmount: 24500,
-          emi: 0,
-          interestRate: 0,
-        },
-      ],
-    },
-    {
-      _id: 'liab_other',
-      name: 'Other Liabilities',
-      icon: 'ShieldAlert',
-      color: 'bg-amber-600',
-      order: 5,
-      entries: [],
-    },
-  ],
+  assetCategories: [],
+  liabilityCategories: [],
 };
 
 const initialState = {
@@ -560,7 +443,9 @@ export const FinanceProvider = ({ children }) => {
       try {
         await apiDeleteEntry(categoryId, entryId);
       } catch (apiErr) {
-        // Ignore api errors for soft-delete background tasks
+        console.error("Failed to delete entry:", apiErr);
+        dispatch({ type: UPDATE_ASSET_CATEGORY, payload: cat });
+        showToast('Failed to delete holding. Restored.', 'error');
       }
     }, 5000);
 
@@ -700,7 +585,9 @@ export const FinanceProvider = ({ children }) => {
       try {
         await apiDeleteLiabilityEntry(categoryId, entryId);
       } catch (apiErr) {
-        // Ignore api errors for soft-delete background tasks
+        console.error("Failed to delete liability:", apiErr);
+        dispatch({ type: UPDATE_LIABILITY_CATEGORY, payload: cat });
+        showToast('Failed to delete liability. Restored.', 'error');
       }
     }, 5000);
 
@@ -848,25 +735,7 @@ export const FinanceProvider = ({ children }) => {
 
   const totalBalance = state.totalBalance || 0;
 
-  const syncedAssetCategories = useMemo(() => {
-    if (!state.assetCategories) return [];
-    return state.assetCategories.map(cat => {
-      if (cat._id === 'cat_cash' || cat.name === 'Cash') {
-        return {
-          ...cat,
-          entries: [
-            {
-              _id: 'entry_synced_balance',
-              name: 'Tracking Balance',
-              investedAmount: totalBalance,
-              currentValue: totalBalance,
-            }
-          ]
-        };
-      }
-      return cat;
-    });
-  }, [state.assetCategories, totalBalance]);
+  // Removed Tracking Balance feature
 
   const updateTotalBalance = useCallback((newBalance) => {
     dispatch({ type: 'SET_TOTAL_BALANCE', payload: newBalance });
@@ -874,7 +743,7 @@ export const FinanceProvider = ({ children }) => {
 
   const value = {
     ...state,
-    assetCategories: syncedAssetCategories,
+    assetCategories: state.assetCategories,
     loading,
     error,
     toast,

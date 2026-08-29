@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, Bot, User } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext.jsx';
+import { useBudget } from '../context/BudgetContext.jsx';
+import { useTransaction } from '../context/TransactionContext.jsx';
 import { createAdvisorChat } from '../services/aiService.js';
 import ReactMarkdown from 'react-markdown';
 
 const AIChatSidebar = ({ isOpen, onClose }) => {
-  const { networthHistory, assetCategories, liabilityCategories, budgets, transactions } = useFinance();
+  const { networthHistory, assetCategories, liabilityCategories } = useFinance();
+  const { budgets = [] } = useBudget();
+  const { transactions = [] } = useTransaction();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);

@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFinance } from '../context/FinanceContext.jsx';
+import { useBudget } from '../context/BudgetContext.jsx';
+import { useTransaction } from '../context/TransactionContext.jsx';
 import { generateHealthReport } from '../services/aiService.js';
 import { ShieldCheck, Activity, TrendingUp, AlertTriangle, Loader2, RefreshCcw, Zap } from 'lucide-react';
 
 const AIAdvisorView = () => {
-  const { networthHistory, assetCategories, liabilityCategories, budgets, transactions } = useFinance();
+  const { networthHistory, assetCategories, liabilityCategories } = useFinance();
+  const { budgets = [] } = useBudget();
+  const { transactions = [] } = useTransaction();
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState(null);
   const [error, setError] = useState(null);

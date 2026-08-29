@@ -34,12 +34,10 @@ function getTodayDisplayLabel() {
  * Calculate user's current net worth from active asset & liability categories
  */
 async function calculateUserNetWorth(userId = null) {
-  let user = null;
-  if (userId) {
-    user = await User.findById(userId);
-  } else {
-    user = await User.findOne();
+  if (!userId) {
+    return { userId: null, totalAssets: 0, totalLiabilities: 0, netWorth: 0 };
   }
+  const user = await User.findById(userId);
 
   if (!user) {
     return {
@@ -119,12 +117,8 @@ async function recordDailyNetWorthSnapshot(userId = null) {
  * Fetch net worth history time series starting from today
  */
 async function getNetWorthHistory(userId = null) {
-  let user = null;
-  if (userId) {
-    user = await User.findById(userId);
-  } else {
-    user = await User.findOne();
-  }
+  if (!userId) return [];
+  const user = await User.findById(userId);
 
   if (!user) return [];
 

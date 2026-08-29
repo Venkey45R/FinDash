@@ -19,10 +19,7 @@ function escapeRegex(str) {
  */
 router.get('/', async (req, res) => {
   try {
-    const user = await User.findOne();
-    if (!user) return res.status(404).json({ error: 'No user found' });
-
-    const categories = await AssetCategory.find({ userId: user._id }).sort({ order: 1 });
+    const categories = await AssetCategory.find({ userId: req.userId }).sort({ order: 1 });
     res.json(categories);
   } catch (error) {
     console.error('Error fetching assets:', error.message);
@@ -58,8 +55,7 @@ router.post('/sync-prices', async (req, res) => {
     }
 
     const syncResult = await triggerManualSync();
-    const user = await User.findOne();
-    const categories = await AssetCategory.find({ userId: user ? user._id : undefined }).sort({ order: 1 });
+    const categories = await AssetCategory.find({ userId: req.userId }).sort({ order: 1 });
     res.json({
       success: true,
       categories,
@@ -76,8 +72,7 @@ router.post('/sync-prices', async (req, res) => {
  */
 router.post('/investment', async (req, res) => {
   try {
-    const user = await User.findOne();
-    if (!user) return res.status(404).json({ error: 'No user found' });
+    const userId = req.userId;
 
     const {
       type, // 'STOCK' | 'MUTUAL_FUND' | 'ETF' | 'OTHER'
@@ -111,14 +106,13 @@ router.post('/investment', async (req, res) => {
       }
     }
 
-    // Use escaped regex to prevent ReDoS (fixes #2)
     let category = await AssetCategory.findOne({
-      userId: user._id,
+      userId: userId,
       name: { $regex: new RegExp(`^${escapeRegex(targetCatName)}$`, 'i') },
     });
 
     if (!category) {
-      category = await AssetCategory.findOne({ userId: user._id }).sort({ order: 1 });
+      category = await AssetCategory.findOne({ userId: userId }).sort({ order: 1 });
     }
     if (!category) return res.status(404).json({ error: 'Category not found' });
 
@@ -263,7 +257,7 @@ router.post('/:categoryId/entries', async (req, res) => {
       return res.status(400).json({ error: 'Entry name is required' });
     }
 
-    const category = await AssetCategory.findById(categoryId);
+    const category = await AssetCategory.findOne({ _id: categoryId, userId: req.userId });
     if (!category) return res.status(404).json({ error: 'Category not found' });
 
     const cleanName = name.trim().toLowerCase();
@@ -356,7 +350,7 @@ router.put('/:categoryId/entries/:entryId', async (req, res) => {
       symbol,
     } = req.body;
 
-    const category = await AssetCategory.findById(categoryId);
+    const category = await AssetCategory.findOne({ _id: categoryId, userId: req.userId });
     if (!category) return res.status(404).json({ error: 'Category not found' });
 
     const entry = category.entries.id(entryId);
@@ -411,7 +405,7 @@ router.delete('/:categoryId/entries/:entryId', async (req, res) => {
   try {
     const { categoryId, entryId } = req.params;
 
-    const category = await AssetCategory.findById(categoryId);
+    const category = await AssetCategory.findOne({ _id: categoryId, userId: req.userId });
     if (!category) return res.status(404).json({ error: 'Category not found' });
 
     const entry = category.entries.id(entryId);

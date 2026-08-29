@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Sun, Moon } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext.jsx';
 import { useFinance } from '../context/FinanceContext.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
+import { LogOut } from 'lucide-react';
 
 const navLinks = [
   { label: 'Overview', id: 'overview' },
@@ -13,6 +15,7 @@ const navLinks = [
 const Header = () => {
   const { isDark, toggleTheme } = useTheme();
   const { user } = useFinance();
+  const { logout } = useAuth();
   const [activeSection, setActiveSection] = useState('overview');
   const isScrolling = React.useRef(false);
 
@@ -117,6 +120,13 @@ const Header = () => {
         >
           <Moon className={`w-[18px] h-[18px] text-amber-500 absolute transition-all duration-300 ${isDark ? 'opacity-0 rotate-90 scale-0' : 'opacity-100 rotate-0 scale-100'}`} />
           <Sun className={`w-[18px] h-[18px] text-blue-400 absolute transition-all duration-300 ${isDark ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-0'}`} />
+        </button>
+        <button
+          onClick={logout}
+          aria-label="Log out"
+          className="relative w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-slate-700 hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-all duration-300 group ml-2"
+        >
+          <LogOut className="w-[18px] h-[18px]" />
         </button>
       </div>
     </header>

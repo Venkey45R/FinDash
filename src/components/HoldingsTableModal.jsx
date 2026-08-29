@@ -41,6 +41,7 @@ function getTableLayout(categoryName = '', groupTitle = '') {
         { key: '1d', label: '1D Change', align: 'center' },
         { key: 'invested', label: 'Invested', align: 'right' },
         { key: 'current', label: 'Current Value', align: 'right' },
+        { key: 'sip', label: 'SIP', align: 'center' },
       ],
     };
   }
@@ -166,9 +167,19 @@ const HoldingsTableModal = ({
     );
   });
 
-  // Calculate Group Totals
-  const totalInvested = entries.reduce((sum, e) => sum + (Number(e.investedAmount) || 0), 0);
-  const totalCurrent = entries.reduce((sum, e) => sum + (Number(e.currentValue) || Number(e.investedAmount) || 0), 0);
+  // Calculate Group Totals — always derive invested from qty × avg price for market assets
+  const computeInvested = (e) => {
+    if (e.quantity > 0 && e.averageBuyPrice > 0) return Number(e.quantity) * Number(e.averageBuyPrice);
+    if (e.units > 0 && e.averageNAV > 0) return Number(e.units) * Number(e.averageNAV);
+    return Number(e.investedAmount) || 0;
+  };
+  const computeCurrent = (e) => {
+    if (e.quantity > 0 && e.latestPrice > 0) return Number(e.quantity) * Number(e.latestPrice);
+    if (e.units > 0 && e.latestNAV > 0) return Number(e.units) * Number(e.latestNAV);
+    return Number(e.currentValue) || computeInvested(e);
+  };
+  const totalInvested = entries.reduce((sum, e) => sum + computeInvested(e), 0);
+  const totalCurrent = entries.reduce((sum, e) => sum + computeCurrent(e), 0);
   const totalGainLoss = totalCurrent - totalInvested;
   const totalGainLossPct = totalInvested > 0 ? parseFloat(((totalGainLoss / totalInvested) * 100).toFixed(2)) : 0;
   const isPositive = totalGainLoss >= 0;
@@ -185,6 +196,9 @@ const HoldingsTableModal = ({
       averageBuyPrice: entry.averageBuyPrice || '',
       units: entry.units || '',
       averageNAV: entry.averageNAV || '',
+      isSip: entry.isSip || false,
+      sipAmount: entry.sipAmount || '',
+      sipDate: entry.sipDate || 1,
     });
   };
 
@@ -194,11 +208,13 @@ const HoldingsTableModal = ({
     const units = parseFloat(editFormData.units) || 0;
     const nav = parseFloat(editFormData.averageNAV) || 0;
 
-    let invested = parseFloat(editFormData.investedAmount);
-    if (isNaN(invested)) {
-      if (qty > 0 && price > 0) invested = qty * price;
-      else if (units > 0 && nav > 0) invested = units * nav;
-      else invested = entry.investedAmount || 0;
+    let invested;
+    if (qty > 0 && price > 0) {
+      invested = qty * price;
+    } else if (units > 0 && nav > 0) {
+      invested = units * nav;
+    } else {
+      invested = parseFloat(editFormData.investedAmount) || entry.investedAmount || 0;
     }
 
     let current = invested;
@@ -219,8 +235,12 @@ const HoldingsTableModal = ({
     const priceUnchanged = price === (entry.averageBuyPrice || 0);
     const unitsUnchanged = units === (entry.units || 0);
     const navUnchanged = nav === (entry.averageNAV || 0);
+    const sipUnchanged = 
+      editFormData.isSip === (entry.isSip || false) && 
+      (parseFloat(editFormData.sipAmount) || 0) === (entry.sipAmount || 0) &&
+      (parseInt(editFormData.sipDate, 10) || 1) === (entry.sipDate || 1);
 
-    if (nameUnchanged && investedUnchanged && qtyUnchanged && priceUnchanged && unitsUnchanged && navUnchanged) {
+    if (nameUnchanged && investedUnchanged && qtyUnchanged && priceUnchanged && unitsUnchanged && navUnchanged && sipUnchanged) {
       setInlineEditingId(null);
       return;
     }
@@ -233,6 +253,9 @@ const HoldingsTableModal = ({
       averageBuyPrice: price,
       units: units,
       averageNAV: nav,
+      isSip: editFormData.isSip,
+      sipAmount: parseFloat(editFormData.sipAmount) || 0,
+      sipDate: parseInt(editFormData.sipDate, 10) || 1,
     });
 
     setInlineEditingId(null);
@@ -241,8 +264,9 @@ const HoldingsTableModal = ({
   // --- Render Helpers ---
 
   const renderMarketRow = (entry) => {
-    const inv = Number(entry.investedAmount) || 0;
-    const cur = Number(entry.currentValue) || inv;
+    // Always compute invested from qty × avg price (never trust stale investedAmount)
+    const inv = computeInvested(entry);
+    const cur = computeCurrent(entry);
     const liveVal = entry.latestNAV || entry.latestPrice;
     const avgVal = entry.averageNAV || entry.averageBuyPrice;
     const dayChg = entry.dailyChange;
@@ -324,24 +348,59 @@ const HoldingsTableModal = ({
         <td className="py-3.5 px-5 text-right font-bold text-slate-900 dark:text-white">
           <div className="flex items-center justify-end gap-2">
             <span>{formatINR(cur)}</span>
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                onClick={() => handleStartInlineEdit(entry)}
-                className="p-1 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                title="Edit"
-              >
-                <Pencil className="w-3 h-3" />
-              </button>
-              <button
-                onClick={() => onDelete(categoryId, entry._id, entry.name)}
-                className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-red-50 dark:hover:bg-slate-700 transition-colors"
-                title="Delete"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
-            </div>
+            {!isMF && (
+              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => handleStartInlineEdit(entry)}
+                  className="p-1 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  title="Edit"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={() => onDelete(categoryId, entry._id, entry.name)}
+                  className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-red-50 dark:hover:bg-slate-700 transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            )}
           </div>
         </td>
+
+        {/* SIP Column (Mutual Funds Only) */}
+        {isMF && (
+          <td className="py-3.5 px-4 text-center">
+            <div className="flex items-center justify-center gap-2">
+              {entry.isSip ? (
+                <div className="flex flex-col items-center">
+                  <span className="text-xs font-semibold text-teal-600 dark:text-teal-400">{formatINR(entry.sipAmount || 0)}</span>
+                  <span className="text-[10px] text-slate-500 whitespace-nowrap">Every month - {entry.sipDate || 1}</span>
+                </div>
+              ) : (
+                <span className="text-slate-400 text-xs">—</span>
+              )}
+              
+              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                <button
+                  onClick={() => handleStartInlineEdit(entry)}
+                  className="p-1 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  title="Edit"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={() => onDelete(categoryId, entry._id, entry.name)}
+                  className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-red-50 dark:hover:bg-slate-700 transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          </td>
+        )}
       </tr>
     );
   };
@@ -449,14 +508,13 @@ const HoldingsTableModal = ({
         </td>
         <td className="py-2.5 px-4 text-center text-slate-400">—</td>
         <td className="py-2.5 px-4 text-right">
-          <input
-            type="number"
-            step="any"
-            value={editFormData.investedAmount}
-            onChange={(e) => setEditFormData({ ...editFormData, investedAmount: e.target.value })}
-            placeholder="Invested"
-            className="w-20 px-2 py-1 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-xs text-right text-slate-900 dark:text-white"
-          />
+          <span className="font-bold text-slate-900 dark:text-white text-xs">
+            {formatINR(
+              (parseFloat(editFormData.quantity) || 0) * (parseFloat(editFormData.averageBuyPrice) || 0) ||
+              (parseFloat(editFormData.units) || 0) * (parseFloat(editFormData.averageNAV) || 0) ||
+              parseFloat(editFormData.investedAmount) || entry.investedAmount || 0
+            )}
+          </span>
         </td>
         <td className="py-2.5 px-5 text-right">
           <div className="flex items-center justify-end gap-1.5">
@@ -478,14 +536,67 @@ const HoldingsTableModal = ({
                 className="w-20 px-2 py-1 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-xs text-right text-slate-900 dark:text-white font-bold"
               />
             )}
-            <button onClick={() => handleSaveInlineEdit(entry)} className="p-1 rounded bg-teal-600 hover:bg-teal-700 text-white" title="Save">
-              <Check className="w-3.5 h-3.5" />
-            </button>
-            <button onClick={() => setInlineEditingId(null)} className="p-1 rounded bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-200 hover:bg-slate-300" title="Cancel">
-              <X className="w-3.5 h-3.5" />
-            </button>
+            
+            {!isMF && (
+              <>
+                <button onClick={() => handleSaveInlineEdit(entry)} className="p-1 rounded bg-teal-600 hover:bg-teal-700 text-white" title="Save">
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => setInlineEditingId(null)} className="p-1 rounded bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-200 hover:bg-slate-300" title="Cancel">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </>
+            )}
           </div>
         </td>
+        
+        {isMF && (
+          <td className="py-2.5 px-4 text-center">
+            <div className="flex flex-col gap-2 items-center">
+              <label className="flex items-center gap-2 text-[10px] font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                <div className="relative">
+                  <input 
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={editFormData.isSip || false}
+                    onChange={(e) => setEditFormData({ ...editFormData, isSip: e.target.checked })}
+                  />
+                  <div className="w-8 h-4 bg-slate-300 dark:bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
+                </div>
+                SIP
+              </label>
+              
+              {editFormData.isSip && (
+                <div className="flex flex-col gap-1 items-center">
+                  <input
+                    type="number"
+                    value={editFormData.sipAmount}
+                    onChange={(e) => setEditFormData({ ...editFormData, sipAmount: e.target.value })}
+                    placeholder="Amt"
+                    className="w-16 px-1 py-1 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-[10px] text-center text-slate-900 dark:text-white"
+                  />
+                  <input
+                    type="number"
+                    min="1" max="31"
+                    value={editFormData.sipDate}
+                    onChange={(e) => setEditFormData({ ...editFormData, sipDate: e.target.value })}
+                    placeholder="Day"
+                    className="w-12 px-1 py-1 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-[10px] text-center text-slate-900 dark:text-white"
+                  />
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center justify-center gap-1.5 mt-2">
+              <button onClick={() => handleSaveInlineEdit(entry)} className="p-1 rounded bg-teal-600 hover:bg-teal-700 text-white" title="Save">
+                <Check className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => setInlineEditingId(null)} className="p-1 rounded bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-200 hover:bg-slate-300" title="Cancel">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </td>
+        )}
       </tr>
     );
   };
@@ -543,7 +654,7 @@ const HoldingsTableModal = ({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className={`bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full ${isMarketMode ? 'max-w-4xl' : 'max-w-2xl'} h-[85vh] overflow-hidden flex flex-col`}>
+      <div className={`bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full ${isMarketMode ? 'max-w-5xl' : 'max-w-2xl'} h-[85vh] overflow-hidden flex flex-col`}>
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">

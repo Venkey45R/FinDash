@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const IncomeCategory = require('../models/IncomeCategory');
 const User = require('../models/User');
@@ -9,11 +10,8 @@ const User = require('../models/User');
 // Get total transaction balance (income - expense)
 router.get('/balance', async (req, res) => {
   try {
-    const user = await User.findOne();
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
     const balanceResult = await Transaction.aggregate([
-      { $match: { userId: user._id } },
+      { $match: { userId: new mongoose.Types.ObjectId(req.userId) } },
       { 
         $group: { 
           _id: null, 
@@ -36,20 +34,18 @@ router.get('/balance', async (req, res) => {
 // Get all transactions for the user (with pagination)
 router.get('/', async (req, res) => {
   try {
-    const user = await User.findOne();
-    if (!user) return res.status(404).json({ message: 'User not found' });
 
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 50;
     const skip = (page - 1) * limit;
 
-    const query = { userId: user._id };
+    const query = { userId: req.userId };
     
     const [transactions, total, balanceResult] = await Promise.all([
       Transaction.find(query).sort({ date: -1 }).skip(skip).limit(limit),
       Transaction.countDocuments(query),
       Transaction.aggregate([
-        { $match: { userId: user._id } },
+        { $match: { userId: new mongoose.Types.ObjectId(req.userId) } },
         { 
           $group: { 
             _id: null, 
@@ -83,19 +79,21 @@ router.get('/', async (req, res) => {
 // Add a transaction
 router.post('/', async (req, res) => {
   try {
-    const user = await User.findOne();
-    if (!user) return res.status(404).json({ message: 'User not found' });
 
     const { type, amount, category, date } = req.body;
     
-    if (!type || !amount || !category) {
-      return res.status(400).json({ message: 'Please provide type, amount, and category' });
+    if (!type || !category) {
+      return res.status(400).json({ message: 'Please provide type and category' });
+    }
+    const numAmount = Number(amount);
+    if (!amount || isNaN(numAmount) || numAmount <= 0) {
+      return res.status(400).json({ message: 'Amount must be a positive number' });
     }
 
     const transaction = new Transaction({
-      userId: user._id,
+      userId: req.userId,
       type,
-      amount,
+      amount: numAmount,
       category,
       date: date || Date.now()
     });
@@ -110,10 +108,7 @@ router.post('/', async (req, res) => {
 // Update a transaction
 router.put('/:id', async (req, res) => {
   try {
-    const user = await User.findOne();
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    const transaction = await Transaction.findOne({ _id: req.params.id, userId: user._id });
+    const transaction = await Transaction.findOne({ _id: req.params.id, userId: req.userId });
     if (!transaction) {
       return res.status(404).json({ message: 'Transaction not found' });
     }
@@ -133,10 +128,7 @@ router.put('/:id', async (req, res) => {
 // Delete a transaction
 router.delete('/:id', async (req, res) => {
   try {
-    const user = await User.findOne();
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    const transaction = await Transaction.findOneAndDelete({ _id: req.params.id, userId: user._id });
+    const transaction = await Transaction.findOneAndDelete({ _id: req.params.id, userId: req.userId });
     if (!transaction) {
       return res.status(404).json({ message: 'Transaction not found' });
     }
@@ -151,10 +143,7 @@ router.delete('/:id', async (req, res) => {
 // Get all income categories
 router.get('/income-categories', async (req, res) => {
   try {
-    const user = await User.findOne();
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    const categories = await IncomeCategory.find({ userId: user._id });
+    const categories = await IncomeCategory.find({ userId: req.userId });
     res.json(categories);
   } catch (error) {
     res.status(500).json({ message: 'Server Error fetching income categories' });
@@ -164,14 +153,11 @@ router.get('/income-categories', async (req, res) => {
 // Add an income category
 router.post('/income-categories', async (req, res) => {
   try {
-    const user = await User.findOne();
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
     const { name } = req.body;
     if (!name) return res.status(400).json({ message: 'Name is required' });
 
     const category = new IncomeCategory({
-      userId: user._id,
+      userId: req.userId,
       name
     });
 
@@ -185,14 +171,11 @@ router.post('/income-categories', async (req, res) => {
 // Update an income category
 router.put('/income-categories/:id', async (req, res) => {
   try {
-    const user = await User.findOne();
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
     const { name } = req.body;
     if (!name) return res.status(400).json({ message: 'Name is required' });
 
     const category = await IncomeCategory.findOneAndUpdate(
-      { _id: req.params.id, userId: user._id },
+      { _id: req.params.id, userId: req.userId },
       { name },
       { new: true }
     );
@@ -207,10 +190,7 @@ router.put('/income-categories/:id', async (req, res) => {
 // Delete an income category
 router.delete('/income-categories/:id', async (req, res) => {
   try {
-    const user = await User.findOne();
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    const category = await IncomeCategory.findOneAndDelete({ _id: req.params.id, userId: user._id });
+    const category = await IncomeCategory.findOneAndDelete({ _id: req.params.id, userId: req.userId });
     if (!category) return res.status(404).json({ message: 'Category not found' });
 
     res.json({ message: 'Category deleted' });

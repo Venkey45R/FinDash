@@ -9,16 +9,16 @@ const { getNetWorthHistory } = require('../services/netWorthService');
 router.get('/user', async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      return res.json({ name: 'Venkatesh', email: 'venkatesh@example.com' });
+      return res.status(503).json({ error: 'Database disconnected' });
     }
-    const user = await User.findOne().select('name email');
+    const user = await User.findById(req.userId).select('name email avatar isOnboarded');
     if (!user) {
-      return res.json({ name: 'Venkatesh', email: 'venkatesh@example.com' });
+      return res.status(404).json({ error: 'User not found' });
     }
     res.json(user);
   } catch (error) {
     console.error('Error fetching user:', error.message);
-    res.json({ name: 'Venkatesh', email: 'venkatesh@example.com' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -28,7 +28,7 @@ router.get('/networth-history', async (req, res) => {
     if (mongoose.connection.readyState !== 1) {
       return res.json([]);
     }
-    const history = await getNetWorthHistory();
+    const history = await getNetWorthHistory(req.userId);
     res.json(history);
   } catch (error) {
     console.error('Error fetching net worth history:', error.message);

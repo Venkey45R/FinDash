@@ -13,6 +13,27 @@ const userSchema = new mongoose.Schema({
     trim: true,
     lowercase: true,
   },
+  password: {
+    type: String,
+    default: null, // null for Google OAuth users
+  },
+  authProvider: {
+    type: String,
+    enum: ['local', 'google'],
+    default: 'local',
+  },
+  googleId: {
+    type: String,
+    default: null,
+  },
+  avatar: {
+    type: String,
+    default: null,
+  },
+  isOnboarded: {
+    type: Boolean,
+    default: false,
+  },
 }, {
   timestamps: true,
 });
