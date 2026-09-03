@@ -145,9 +145,28 @@ async function getNetWorthHistory(userId = null) {
 
   return history;
 }
+/**
+ * Record or update daily snapshot for all users (used by scheduler)
+ */
+async function recordAllUsersDailyNetWorthSnapshot() {
+  try {
+    const users = await User.find({});
+    let count = 0;
+    for (const user of users) {
+      const snap = await recordDailyNetWorthSnapshot(user._id);
+      if (snap) count++;
+    }
+    console.log(`[NetWorthService] Recorded daily snapshots for ${count} users.`);
+    return count;
+  } catch (err) {
+    console.error('[NetWorthService] Error recording snapshots for all users:', err.message);
+    return 0;
+  }
+}
 
 module.exports = {
   calculateUserNetWorth,
   recordDailyNetWorthSnapshot,
+  recordAllUsersDailyNetWorthSnapshot,
   getNetWorthHistory,
 };

@@ -1,6 +1,6 @@
 const cron = require('node-cron');
 const { syncAllAssetPrices, processDailySips } = require('./priceService');
-const { recordDailyNetWorthSnapshot } = require('./netWorthService');
+const { recordAllUsersDailyNetWorthSnapshot } = require('./netWorthService');
 
 let lastSyncTimestamp = null;
 let lastSyncResult = null;
@@ -16,7 +16,7 @@ function initPriceScheduler() {
   // Ensure today's baseline snapshot exists on startup
   setTimeout(async () => {
     try {
-      await recordDailyNetWorthSnapshot();
+      await recordAllUsersDailyNetWorthSnapshot();
     } catch (e) {
       console.warn('[SchedulerService] Initial net worth snapshot recording deferred:', e.message);
     }
@@ -48,7 +48,7 @@ function initPriceScheduler() {
     async () => {
       console.log(`[SchedulerService] 4:00 PM IST triggered. Recording daily net worth snapshot on ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}...`);
       try {
-        await recordDailyNetWorthSnapshot();
+        await recordAllUsersDailyNetWorthSnapshot();
         console.log('[SchedulerService] 4:00 PM net worth snapshot recorded successfully.');
       } catch (err) {
         console.error('[SchedulerService] Error recording 4:00 PM net worth snapshot:', err);
@@ -70,7 +70,7 @@ async function triggerManualSync() {
   await processDailySips();
   lastSyncTimestamp = new Date();
   lastSyncResult = result;
-  await recordDailyNetWorthSnapshot();
+  await recordAllUsersDailyNetWorthSnapshot();
   return result;
 }
 
