@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authApi } from '../services/authApi';
+import { clearState } from '../utils/idb';
 
 const AuthContext = createContext();
 
@@ -59,12 +60,15 @@ export const AuthProvider = ({ children }) => {
     return userData;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Capture userId before clearing user state
+    const userId = user?._id;
     localStorage.removeItem('fin-dash-token');
-    // We should clear the FinanceContext state too, which usually relies on a reload
-    // or an event. For now, reload the page to clear all states.
+    // Clear this user's IDB cache so the next person to log in on this
+    // browser cannot briefly see stale financial data during the fast-render phase.
+    await clearState(userId);
     setUser(null);
-    window.location.href = '/'; 
+    window.location.href = '/';
   };
 
   const value = {

@@ -15,7 +15,7 @@ import {
   fetchSyncStatus as apiFetchSyncStatus,
 } from '../services/api';
 import { searchCatalog } from '../data/instrumentsData';
-import { saveState, loadState } from '../utils/idb';
+import { saveState, loadState, clearState } from '../utils/idb';
 import { budgetApi } from '../services/budgetApi';
 import { transactionApi } from '../services/transactionApi';
 import { useMemo } from 'react';
@@ -139,16 +139,31 @@ export const FinanceProvider = ({ children }) => {
           localStorage.removeItem('pfd_state_v2');
         } catch { /* ignore */ }
 
-        // Try IndexedDB cache first for instant render
-        const cached = await loadState();
+        // ── Step 1: Identify the logged-in user first ──
+        // We intentionally do NOT load the IDB cache before knowing the user.
+        // This prevents a previous user's cached data from briefly flashing
+        // on screen when a different user logs in on the same browser.
+        let userData;
+        try {
+          userData = await fetchUser();
+        } catch (authErr) {
+          // No valid session — nothing to load
+          console.warn('Could not fetch user (likely logged out):', authErr.message);
+          setLoading(false);
+          return;
+        }
+
+        const userId = userData?._id;
+
+        // ── Step 2: Load this user's scoped IDB cache for instant render ──
+        const cached = await loadState(userId);
         if (cached) {
           dispatch({ type: SET_DATA, payload: cached });
         }
 
-        // Fetch fresh from API
+        // ── Step 3: Fetch remaining fresh data in parallel ──
         try {
-          const [userData, historyData, assetData, liabilityData, syncStatusData, balanceData] = await Promise.all([
-            fetchUser(),
+          const [historyData, assetData, liabilityData, syncStatusData, balanceData] = await Promise.all([
             fetchNetWorthHistory(),
             fetchAssetCategories(),
             fetchLiabilityCategories(),
@@ -166,12 +181,12 @@ export const FinanceProvider = ({ children }) => {
           };
 
           dispatch({ type: SET_DATA, payload: freshState });
-          await saveState(freshState);
+          await saveState(freshState, userId);
         } catch (apiErr) {
           console.warn('Backend fetch failed or offline, falling back to local cached/default state:', apiErr.message);
           if (!cached) {
             dispatch({ type: SET_DATA, payload: defaultFallbackState });
-            await saveState(defaultFallbackState);
+            await saveState(defaultFallbackState, userId);
           }
         }
       } catch (err) {
@@ -185,10 +200,10 @@ export const FinanceProvider = ({ children }) => {
     loadData();
   }, []);
 
-  // ─── Persist to IndexedDB on every state change ───
+  // ─── Persist to IndexedDB on every state change (user-scoped) ───
   useEffect(() => {
     if (state.user) {
-      saveState(state);
+      saveState(state, state.user._id);
     }
   }, [state]);
 
