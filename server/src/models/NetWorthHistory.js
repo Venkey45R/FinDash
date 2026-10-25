@@ -1,11 +1,12 @@
 const mongoose = require('mongoose');
+const { getSingleUserId } = require('../utils/singleUser');
 
 const netWorthHistorySchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      required: false,
       index: true,
     },
     dateString: {
@@ -39,6 +40,12 @@ const netWorthHistorySchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+netWorthHistorySchema.pre('validate', async function() {
+  if (!this.userId) {
+    this.userId = await getSingleUserId();
+  }
+});
 
 // Compound index to ensure exactly one snapshot per user per day
 netWorthHistorySchema.index({ userId: 1, dateString: 1 }, { unique: true });

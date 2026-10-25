@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
 import Header from './components/Header.jsx';
 import SummaryCards from './components/SummaryCards.jsx';
@@ -16,13 +16,9 @@ import AIChatSidebar from './components/AIChatSidebar.jsx';
 import BudgetSidebar from './components/BudgetSidebar.jsx';
 import TrackingSidebar from './components/TrackingSidebar.jsx';
 import { MessageSquare, Sparkles, X, Target, ReceiptText } from 'lucide-react';
-import { TransactionProvider } from './context/TransactionContext.jsx';
-import { BudgetProvider } from './context/BudgetContext.jsx';
-import ProtectedRoute from './components/ProtectedRoute.jsx';
-import LandingPage from './pages/LandingPage.jsx';
-import LoginPage from './pages/LoginPage.jsx';
-import SignupPage from './pages/SignupPage.jsx';
-import OnboardingPage from './pages/OnboardingPage.jsx';
+import { TransactionProvider, useTransaction } from './context/TransactionContext.jsx';
+import { BudgetProvider, useBudget } from './context/BudgetContext.jsx';
+import { formatINR } from './utils/format.js';
 
 const getFormattedDate = () => {
   return new Date().toLocaleDateString('en-IN', {
@@ -35,10 +31,28 @@ const getFormattedDate = () => {
 
 const DashboardContent = () => {
   const { loading, error } = useFinance();
+  const { budgets = [] } = useBudget();
+  const { transactions = [] } = useTransaction();
   const [chatOpen, setChatOpen] = React.useState(false);
   const [advisorOpen, setAdvisorOpen] = React.useState(false);
   const [budgetOpen, setBudgetOpen] = React.useState(false);
   const [trackingOpen, setTrackingOpen] = React.useState(false);
+
+  const totalBudgetTarget = React.useMemo(() => {
+    return budgets.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+  }, [budgets]);
+
+  const currentMonthSpent = React.useMemo(() => {
+    const now = new Date();
+    const curMonth = now.getMonth();
+    const curYear = now.getFullYear();
+    return transactions
+      .filter(t => {
+        const d = new Date(t.date);
+        return d.getMonth() === curMonth && d.getFullYear() === curYear && t.type === 'expense';
+      })
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  }, [transactions]);
 
   const sidebarOpen = chatOpen || advisorOpen || budgetOpen || trackingOpen;
 
@@ -115,9 +129,18 @@ const DashboardContent = () => {
                 <div className="w-14 h-14 bg-teal-50 dark:bg-teal-900/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                   <Target className="w-7 h-7 text-teal-600 dark:text-teal-400" />
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">FinDash Budgeting</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Set monthly limits and track your adherence over time.</p>
+                  {totalBudgetTarget > 0 && (
+                    <div className="mt-2 flex items-center gap-2 text-xs font-medium flex-wrap">
+                      <span className="text-teal-600 dark:text-teal-400 font-semibold">Target: {formatINR(totalBudgetTarget)}</span>
+                      <span className="text-gray-300 dark:text-gray-600">•</span>
+                      <span className={currentMonthSpent > totalBudgetTarget ? 'text-rose-500 dark:text-rose-400 font-semibold' : 'text-slate-600 dark:text-slate-300'}>
+                        Spent: {formatINR(currentMonthSpent)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -234,27 +257,17 @@ const DashboardContent = () => {
 function App() {
   return (
     <ErrorBoundary>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/onboarding" element={
-          <ProtectedRoute>
-            <OnboardingPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <FinanceProvider>
-              <TransactionProvider>
-                <BudgetProvider>
-                  <DashboardContent />
-                </BudgetProvider>
-              </TransactionProvider>
-            </FinanceProvider>
-          </ProtectedRoute>
-        } />
-      </Routes>
+      <FinanceProvider>
+        <TransactionProvider>
+          <BudgetProvider>
+            <Routes>
+              {/* All routes go directly to dashboard — no login needed */}
+              <Route path="/dashboard" element={<DashboardContent />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </BudgetProvider>
+        </TransactionProvider>
+      </FinanceProvider>
     </ErrorBoundary>
   );
 }

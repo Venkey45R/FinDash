@@ -54,6 +54,24 @@ const BudgetSidebar = ({ isOpen, onClose }) => {
     });
   }, [transactions, selectedMonth, selectedYear]);
 
+  // Total budget amount target across all budget categories
+  const totalBudgetTarget = React.useMemo(() => {
+    return budgets.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+  }, [budgets]);
+
+  // Total spent this month (all expense transactions in selected month)
+  const totalSpentThisMonth = React.useMemo(() => {
+    return currentMonthTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  }, [currentMonthTransactions]);
+
+  const remainingBudget = totalBudgetTarget - totalSpentThisMonth;
+  const isOverBudget = remainingBudget < 0;
+  const percentSpent = totalBudgetTarget > 0 
+    ? Math.round((totalSpentThisMonth / totalBudgetTarget) * 100) 
+    : 0;
+
   const handleAddSubmit = async (e) => {
     e.preventDefault();
     if (!newName.trim() || !newAmount) return;
@@ -151,6 +169,68 @@ const BudgetSidebar = ({ isOpen, onClose }) => {
           </button>
         </div>
 
+        {/* Monthly Budget & Spent Summary */}
+        <div className="bg-gray-50 dark:bg-slate-900/80 border-b border-gray-200 dark:border-slate-800 p-4 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="text-center flex-1 min-w-0">
+              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1 truncate">Budget Target</div>
+              <div className="font-bold text-sm sm:text-base text-gray-800 dark:text-white truncate">
+                {formatINR(totalBudgetTarget)}
+              </div>
+            </div>
+            <div className="w-px h-8 bg-gray-200 dark:bg-slate-700" />
+            <div className="text-center flex-1 min-w-0">
+              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1 truncate">Spent This Month</div>
+              <div className={`font-bold text-sm sm:text-base truncate ${isOverBudget ? 'text-rose-600 dark:text-rose-400' : 'text-gray-800 dark:text-white'}`}>
+                {formatINR(totalSpentThisMonth)}
+              </div>
+            </div>
+            <div className="w-px h-8 bg-gray-200 dark:bg-slate-700" />
+            <div className="text-center flex-1 min-w-0">
+              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1 truncate">
+                {isOverBudget ? 'Over Budget' : 'Remaining'}
+              </div>
+              <div className={`font-bold text-sm sm:text-base truncate ${isOverBudget ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                {formatINR(Math.abs(remainingBudget))}
+              </div>
+            </div>
+          </div>
+
+          {/* Adherence Progress Bar */}
+          {totalBudgetTarget > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-200/60 dark:border-slate-800/80">
+              <div className="flex items-center justify-between text-xs font-medium mb-1.5">
+                <span className="text-gray-500 dark:text-gray-400">
+                  {percentSpent > 100 
+                    ? `Over budget by ${percentSpent - 100}%` 
+                    : `${percentSpent}% of budget used`}
+                </span>
+                <span className={`font-semibold ${
+                  percentSpent > 100 
+                    ? 'text-rose-600 dark:text-rose-400' 
+                    : percentSpent >= 80 
+                      ? 'text-amber-600 dark:text-amber-400' 
+                      : 'text-teal-600 dark:text-teal-400'
+                }`}>
+                  {formatINR(totalSpentThisMonth)} / {formatINR(totalBudgetTarget)}
+                </span>
+              </div>
+              <div className="w-full h-2 bg-gray-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    percentSpent > 100 
+                      ? 'bg-rose-500' 
+                      : percentSpent >= 80 
+                        ? 'bg-amber-500' 
+                        : 'bg-teal-500'
+                  }`}
+                  style={{ width: `${Math.min(percentSpent, 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
           {loading ? (
             <div className="text-center py-10 text-gray-500">Loading budgets...</div>
@@ -203,14 +283,19 @@ const BudgetSidebar = ({ isOpen, onClose }) => {
                           <h4 className={`text-sm font-semibold truncate ${isMet ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-900 dark:text-white'}`}>
                             {budget.name}
                           </h4>
-                          <div className={`text-xs mt-0.5 font-medium ${isOverdue ? 'text-red-500 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                            {isOverdue ? `Over budget: ${formatINR(Math.abs(remaining))}` : `Remaining: ${formatINR(remaining)}`}
+                          <div className={`text-xs mt-0.5 font-medium flex items-center gap-1.5 flex-wrap ${isOverdue ? 'text-rose-500 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                            <span className="text-gray-500 dark:text-gray-400">Spent: {formatINR(categoryExpenses)}</span>
+                            <span className="text-gray-300 dark:text-gray-600">•</span>
+                            <span>{isOverdue ? `Over: ${formatINR(Math.abs(remaining))}` : `Remaining: ${formatINR(remaining)}`}</span>
                           </div>
                         </div>
 
                         {/* Amount */}
-                        <div className={`font-medium text-sm ${isMet ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-700 dark:text-gray-300'}`}>
-                          {formatINR(budget.amount)}
+                        <div className="text-right shrink-0">
+                          <div className={`font-semibold text-sm ${isMet ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-700 dark:text-gray-300'}`}>
+                            {formatINR(budget.amount)}
+                          </div>
+                          <div className="text-[10px] text-gray-400 dark:text-gray-500">limit</div>
                         </div>
 
                         {/* Actions */}

@@ -4,16 +4,24 @@ const mongoose = require('mongoose');
 
 const User = require('../models/User');
 const { getNetWorthHistory } = require('../services/netWorthService');
+const { getSingleUserId } = require('../utils/singleUser');
 
-// GET /api/dashboard/user — User profile
+// GET /api/dashboard/user — Return the single user's profile
 router.get('/user', async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({ error: 'Database disconnected' });
     }
-    const user = await User.findById(req.userId).select('name email avatar isOnboarded');
+    const uid = req.userId || (await getSingleUserId());
+    let user = null;
+    if (uid) {
+      user = await User.findById(uid).select('name email avatar isOnboarded');
+    }
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      user = await User.findOne({}).select('name email avatar isOnboarded');
+    }
+    if (!user) {
+      return res.json({ name: 'User', email: '', avatar: null, isOnboarded: true });
     }
     res.json(user);
   } catch (error) {
@@ -22,13 +30,20 @@ router.get('/user', async (req, res) => {
   }
 });
 
-// GET /api/dashboard/networth-history — Net worth time series starting from today
+// GET /api/dashboard/networth-history — Net worth time series
 router.get('/networth-history', async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
       return res.json([]);
     }
-    const history = await getNetWorthHistory(req.userId);
+    const uid = req.userId || (await getSingleUserId());
+    let targetUserId = uid;
+    if (!targetUserId) {
+      const user = await User.findOne({});
+      targetUserId = user?._id;
+    }
+    if (!targetUserId) return res.json([]);
+    const history = await getNetWorthHistory(targetUserId);
     res.json(history);
   } catch (error) {
     console.error('Error fetching net worth history:', error.message);
@@ -37,4 +52,3 @@ router.get('/networth-history', async (req, res) => {
 });
 
 module.exports = router;
-

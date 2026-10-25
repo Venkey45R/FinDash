@@ -31,24 +31,22 @@ function getTodayDisplayLabel() {
 }
 
 /**
- * Calculate user's current net worth from active asset & liability categories
+ * Calculate current net worth from all asset & liability categories (single-user mode)
  */
 async function calculateUserNetWorth(userId = null) {
-  if (!userId) {
-    return { userId: null, totalAssets: 0, totalLiabilities: 0, netWorth: 0 };
+  // Single-user mode: use the first user if no userId provided
+  let user = null;
+  if (userId) {
+    user = await User.findById(userId);
+  } else {
+    user = await User.findOne({});
   }
-  const user = await User.findById(userId);
 
   if (!user) {
-    return {
-      userId: null,
-      totalAssets: 0,
-      totalLiabilities: 0,
-      netWorth: 0,
-    };
+    return { userId: null, totalAssets: 0, totalLiabilities: 0, netWorth: 0 };
   }
 
-  // Calculate Total Assets
+  // Calculate Total Assets — scoped to user
   const assetCategories = await AssetCategory.find({ userId: user._id });
   let totalAssets = 0;
   for (const cat of assetCategories) {
@@ -58,7 +56,7 @@ async function calculateUserNetWorth(userId = null) {
     }
   }
 
-  // Calculate Total Liabilities
+  // Calculate Total Liabilities — scoped to user
   const liabilityCategories = await LiabilityCategory.find({ userId: user._id });
   let totalLiabilities = 0;
   for (const cat of liabilityCategories) {
@@ -81,7 +79,7 @@ async function calculateUserNetWorth(userId = null) {
 }
 
 /**
- * Record or update daily snapshot for today (triggered at 4:00 PM cron or upon first check)
+ * Record or update daily snapshot for today
  */
 async function recordDailyNetWorthSnapshot(userId = null) {
   try {
@@ -114,16 +112,21 @@ async function recordDailyNetWorthSnapshot(userId = null) {
 }
 
 /**
- * Fetch net worth history time series starting from today
+ * Fetch net worth history time series
  */
 async function getNetWorthHistory(userId = null) {
-  if (!userId) return [];
-  const user = await User.findById(userId);
+  // Single-user mode: find the first user if no userId given
+  let user = null;
+  if (userId) {
+    user = await User.findById(userId);
+  } else {
+    user = await User.findOne({});
+  }
 
   if (!user) return [];
 
   let history = await NetWorthHistory.find({ userId: user._id })
-    .sort({ dateString: 1 })
+    .sort({ dateString: 1, recordedAt: 1 })
     .select('dateString month netWorth totalAssets totalLiabilities recordedAt -_id');
 
   // If no snapshots recorded yet, record today's initial snapshot immediately
@@ -143,8 +146,19 @@ async function getNetWorthHistory(userId = null) {
     }
   }
 
+  // Deduplicate by dateString so each date appears at most once (keep the latest recorded)
+  if (Array.isArray(history) && history.length > 0) {
+    const dateMap = new Map();
+    for (const item of history) {
+      const plain = item.toObject ? item.toObject() : { ...item };
+      dateMap.set(plain.dateString, plain);
+    }
+    history = Array.from(dateMap.values()).sort((a, b) => a.dateString.localeCompare(b.dateString));
+  }
+
   return history;
 }
+
 /**
  * Record or update daily snapshot for all users (used by scheduler)
  */

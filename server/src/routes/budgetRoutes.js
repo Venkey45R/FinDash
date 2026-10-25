@@ -1,14 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const Budget = require('../models/Budget');
-const User = require('../models/User');
+const { getSingleUserId } = require('../utils/singleUser');
 
 /**
- * GET /api/budgets - Get all budgets for the user
+ * GET /api/budgets - Get all budgets
  */
 router.get('/', async (req, res) => {
   try {
-    const budgets = await Budget.find({ userId: req.userId }).sort({ createdAt: 1 });
+    const userId = req.userId || (await getSingleUserId());
+    const filter = userId ? { userId } : {};
+    const budgets = await Budget.find(filter).sort({ createdAt: 1 });
     res.json(budgets);
   } catch (error) {
     console.error('Error fetching budgets:', error.message);
@@ -29,8 +31,10 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Valid budget amount is required' });
     }
 
+    const userId = req.userId || (await getSingleUserId());
+
     const newBudget = new Budget({
-      userId: req.userId,
+      userId,
       name: name.trim(),
       amount: Number(amount),
       monthlyTracking: [],
@@ -56,8 +60,8 @@ router.put('/:id', async (req, res) => {
     if (amount !== undefined) updateData.amount = Number(amount);
     if (monthlyTracking !== undefined) updateData.monthlyTracking = monthlyTracking;
 
-    const updatedBudget = await Budget.findOneAndUpdate(
-      { _id: req.params.id, userId: req.userId },
+    const updatedBudget = await Budget.findByIdAndUpdate(
+      req.params.id,
       { $set: updateData },
       { new: true, runValidators: true }
     );
@@ -75,7 +79,7 @@ router.put('/:id', async (req, res) => {
  */
 router.delete('/:id', async (req, res) => {
   try {
-    const deletedBudget = await Budget.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+    const deletedBudget = await Budget.findByIdAndDelete(req.params.id);
     if (!deletedBudget) return res.status(404).json({ error: 'Budget not found' });
     res.json({ message: 'Budget deleted successfully' });
   } catch (error) {

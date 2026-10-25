@@ -1,0 +1,12 @@
+FROM node:22-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 5000
+ENV PORT=5000
+ENV MONGO_URI=mongodb+srv://venkateshamulraj_db_user:OHqXyTidp89vedFL@findash.vx26fun.mongodb.net/findash
+ENV JWT_SECRET=findash-dev-secret-key-change-in-production
+ENV GOOGLE_CLIENT_ID=107930895416-86vaun4fhp6k8tkq56rfe55r541qdmp9.apps.googleusercontent.com
+
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

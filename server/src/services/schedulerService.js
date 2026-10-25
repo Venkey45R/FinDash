@@ -65,12 +65,17 @@ function initPriceScheduler() {
 /**
  * Manual trigger helper
  */
-async function triggerManualSync() {
+async function triggerManualSync(userId = null) {
+  const { recordDailyNetWorthSnapshot } = require('./netWorthService');
   const result = await syncAllAssetPrices();
   await processDailySips();
   lastSyncTimestamp = new Date();
   lastSyncResult = result;
-  await recordAllUsersDailyNetWorthSnapshot();
+  if (userId) {
+    await recordDailyNetWorthSnapshot(userId);
+  } else {
+    await recordAllUsersDailyNetWorthSnapshot();
+  }
   return result;
 }
 

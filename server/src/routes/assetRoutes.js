@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const router = express.Router();
 const AssetCategory = require('../models/AssetCategory');
-const User = require('../models/User');
+const { getSingleUserId } = require('../utils/singleUser');
 const { triggerManualSync, getSyncStatus } = require('../services/schedulerService');
 
 /**
@@ -19,8 +19,20 @@ function escapeRegex(str) {
  */
 router.get('/', async (req, res) => {
   try {
-    const categories = await AssetCategory.find({ userId: req.userId }).sort({ order: 1 });
-    res.json(categories);
+    const userId = req.userId || (await getSingleUserId());
+    const filter = userId ? { userId } : {};
+    const categories = await AssetCategory.find(filter).sort({ order: 1 });
+
+    // Deduplicate by category name as defensive measure
+    const seen = new Set();
+    const uniqueCategories = categories.filter((cat) => {
+      const name = (cat.name || '').trim().toLowerCase();
+      if (!name || seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+
+    res.json(uniqueCategories);
   } catch (error) {
     console.error('Error fetching assets:', error.message);
     res.status(500).json({ error: 'Server error' });
@@ -54,8 +66,10 @@ router.post('/sync-prices', async (req, res) => {
       });
     }
 
-    const syncResult = await triggerManualSync();
-    const categories = await AssetCategory.find({ userId: req.userId }).sort({ order: 1 });
+    const userId = req.userId || (await getSingleUserId());
+    const filter = userId ? { userId } : {};
+    const syncResult = await triggerManualSync(userId);
+    const categories = await AssetCategory.find(filter).sort({ order: 1 });
     res.json({
       success: true,
       categories,
@@ -72,8 +86,6 @@ router.post('/sync-prices', async (req, res) => {
  */
 router.post('/investment', async (req, res) => {
   try {
-    const userId = req.userId;
-
     const {
       type, // 'STOCK' | 'MUTUAL_FUND' | 'ETF' | 'OTHER'
       instrumentId,
@@ -106,15 +118,27 @@ router.post('/investment', async (req, res) => {
       }
     }
 
+    const uid = req.userId || (await getSingleUserId());
     let category = await AssetCategory.findOne({
-      userId: userId,
+      userId: uid,
       name: { $regex: new RegExp(`^${escapeRegex(targetCatName)}$`, 'i') },
     });
 
     if (!category) {
-      category = await AssetCategory.findOne({ userId: userId }).sort({ order: 1 });
+      category = await AssetCategory.findOne({ userId: uid }).sort({ order: 1 });
     }
-    if (!category) return res.status(404).json({ error: 'Category not found' });
+    if (!category) {
+      const uid = req.userId || (await getSingleUserId());
+      category = new AssetCategory({
+        userId: uid,
+        name: targetCatName || 'Domestic Equity',
+        icon: 'TrendingUp',
+        color: 'bg-teal-500',
+        order: 1,
+        entries: [],
+      });
+      await category.save();
+    }
 
     let finalSubCategory = 'OTHER';
     if (type === 'STOCK') finalSubCategory = 'STOCKS';
@@ -257,7 +281,7 @@ router.post('/:categoryId/entries', async (req, res) => {
       return res.status(400).json({ error: 'Entry name is required' });
     }
 
-    const category = await AssetCategory.findOne({ _id: categoryId, userId: req.userId });
+    const category = await AssetCategory.findById(categoryId);
     if (!category) return res.status(404).json({ error: 'Category not found' });
 
     const cleanName = name.trim().toLowerCase();
@@ -350,7 +374,7 @@ router.put('/:categoryId/entries/:entryId', async (req, res) => {
       symbol,
     } = req.body;
 
-    const category = await AssetCategory.findOne({ _id: categoryId, userId: req.userId });
+    const category = await AssetCategory.findById(categoryId);
     if (!category) return res.status(404).json({ error: 'Category not found' });
 
     const entry = category.entries.id(entryId);
@@ -405,7 +429,7 @@ router.delete('/:categoryId/entries/:entryId', async (req, res) => {
   try {
     const { categoryId, entryId } = req.params;
 
-    const category = await AssetCategory.findOne({ _id: categoryId, userId: req.userId });
+    const category = await AssetCategory.findById(categoryId);
     if (!category) return res.status(404).json({ error: 'Category not found' });
 
     const entry = category.entries.id(entryId);

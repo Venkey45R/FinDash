@@ -44,3 +44,38 @@ export const getCategoryIcon = (name = '') => {
   }
   return Landmark;
 };
+
+/**
+ * Format a Date to local YYYY-MM-DD string without UTC offset shifting.
+ * @param {Date|string|number} date
+ * @returns {string} YYYY-MM-DD
+ */
+export const getLocalDateString = (date = new Date()) => {
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Format a local YYYY-MM-DD date key into a readable Indian locale date string.
+ * @param {string} dateKey - YYYY-MM-DD
+ * @returns {string} e.g. "Tue, 20 Oct, 2026"
+ */
+export const formatLocalDateLabel = (dateKey) => {
+  if (!dateKey) return '';
+  const parts = String(dateKey).split('T')[0].split('-');
+  if (parts.length !== 3) return dateKey;
+  const [y, m, d] = parts.map(Number);
+  const dateObj = new Date(y, m - 1, d);
+  if (isNaN(dateObj.getTime())) return dateKey;
+  return dateObj.toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+};
+

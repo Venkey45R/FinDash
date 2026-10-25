@@ -1,15 +1,27 @@
 const express = require('express');
 const router = express.Router();
 const LiabilityCategory = require('../models/LiabilityCategory');
-const User = require('../models/User');
+const { getSingleUserId } = require('../utils/singleUser');
 
 /**
- * GET /api/liabilities — Get all liability categories for the user
+ * GET /api/liabilities — Get all liability categories
  */
 router.get('/', async (req, res) => {
   try {
-    const categories = await LiabilityCategory.find({ userId: req.userId }).sort({ order: 1 });
-    res.json(categories);
+    const userId = req.userId || (await getSingleUserId());
+    const filter = userId ? { userId } : {};
+    const categories = await LiabilityCategory.find(filter).sort({ order: 1 });
+
+    // Deduplicate by category name as defensive measure
+    const seen = new Set();
+    const uniqueCategories = categories.filter((cat) => {
+      const name = (cat.name || '').trim().toLowerCase();
+      if (!name || seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+
+    res.json(uniqueCategories);
   } catch (error) {
     console.error('Error fetching liabilities:', error.message);
     res.status(500).json({ error: 'Server error' });
@@ -28,7 +40,7 @@ router.post('/:categoryId/entries', async (req, res) => {
       return res.status(400).json({ error: 'Liability name is required' });
     }
 
-    const category = await LiabilityCategory.findOne({ _id: categoryId, userId: req.userId });
+    const category = await LiabilityCategory.findById(categoryId);
     if (!category) return res.status(404).json({ error: 'Category not found' });
 
     const cleanName = name.trim().toLowerCase();
@@ -89,7 +101,7 @@ router.put('/:categoryId/entries/:entryId', async (req, res) => {
     const { categoryId, entryId } = req.params;
     const { name, originalAmount, outstandingAmount, emi, interestRate } = req.body;
 
-    const category = await LiabilityCategory.findOne({ _id: categoryId, userId: req.userId });
+    const category = await LiabilityCategory.findById(categoryId);
     if (!category) return res.status(404).json({ error: 'Category not found' });
 
     const entry = category.entries.id(entryId);
@@ -120,7 +132,7 @@ router.delete('/:categoryId/entries/:entryId', async (req, res) => {
   try {
     const { categoryId, entryId } = req.params;
 
-    const category = await LiabilityCategory.findOne({ _id: categoryId, userId: req.userId });
+    const category = await LiabilityCategory.findById(categoryId);
     if (!category) return res.status(404).json({ error: 'Category not found' });
 
     const entry = category.entries.id(entryId);

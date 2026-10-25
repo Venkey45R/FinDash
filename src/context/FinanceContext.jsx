@@ -50,13 +50,46 @@ const initialState = {
   totalBalance: 0,
 };
 
+const dedupeCategories = (categories = []) => {
+  if (!Array.isArray(categories)) return [];
+  const seen = new Set();
+  return categories.filter((cat) => {
+    const key = (cat.name || '').trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const dedupeNetWorthHistory = (history = []) => {
+  if (!Array.isArray(history)) return [];
+  const map = new Map();
+  for (const h of history) {
+    const key = h.dateString || h.month;
+    map.set(key, h);
+  }
+  return Array.from(map.values()).sort((a, b) => (a.dateString || '').localeCompare(b.dateString || ''));
+};
+
 function financeReducer(state, action) {
   switch (action.type) {
     case SET_DATA:
-      return { ...state, ...action.payload };
+      return {
+        ...state,
+        ...action.payload,
+        assetCategories: action.payload.assetCategories
+          ? dedupeCategories(action.payload.assetCategories)
+          : state.assetCategories,
+        liabilityCategories: action.payload.liabilityCategories
+          ? dedupeCategories(action.payload.liabilityCategories)
+          : state.liabilityCategories,
+        networthHistory: action.payload.networthHistory
+          ? dedupeNetWorthHistory(action.payload.networthHistory)
+          : state.networthHistory,
+      };
 
     case SET_ASSET_CATEGORIES:
-      return { ...state, assetCategories: action.payload };
+      return { ...state, assetCategories: dedupeCategories(action.payload) };
 
     case UPDATE_ASSET_CATEGORY: {
       const updated = action.payload;
@@ -69,7 +102,7 @@ function financeReducer(state, action) {
     }
 
     case SET_LIABILITY_CATEGORIES:
-      return { ...state, liabilityCategories: action.payload };
+      return { ...state, liabilityCategories: dedupeCategories(action.payload) };
 
     case UPDATE_LIABILITY_CATEGORY: {
       const updated = action.payload;
@@ -82,7 +115,7 @@ function financeReducer(state, action) {
     }
 
     case SET_NETWORTH_HISTORY:
-      return { ...state, networthHistory: action.payload };
+      return { ...state, networthHistory: dedupeNetWorthHistory(action.payload) };
 
     case 'SET_TOTAL_BALANCE':
       return { ...state, totalBalance: action.payload };

@@ -1,0 +1,11 @@
+services:
+  server:
+    build: ./server
+    image: findash-server
+    ports: 
+      - "5000:5000"
+  frontend:
+    build: ./
+    image: findash-frontend
+    ports:
+      - "5173:5173"

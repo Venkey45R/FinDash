@@ -2,7 +2,7 @@ import React, { useState, useMemo, Fragment } from 'react';
 import { X, Plus, Save, Trash2, Check, Edit2, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Receipt, Settings, CalendarDays } from 'lucide-react';
 import { useTransaction } from '../context/TransactionContext';
 import { useBudget } from '../context/BudgetContext';
-import { formatINR } from '../utils/format';
+import { formatINR, getLocalDateString, formatLocalDateLabel } from '../utils/format';
 import ConfirmPopup from './ConfirmPopup';
 import ManageCategoriesModal from './ManageCategoriesModal';
 
@@ -30,18 +30,35 @@ const TrackingSidebar = ({ isOpen, onClose }) => {
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const [newCustomCategory, setNewCustomCategory] = useState('');
   
-  const [editingId, setEditingId] = useState(null);
-  const [editAmount, setEditAmount] = useState('');
-  const [editCategory, setEditCategory] = useState('');
-  
-  const [itemToDelete, setItemToDelete] = useState(null);
-
-  const [isManageModalOpen, setIsManageModalOpen] = useState(false);
-
   // Current month state
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+
+  const getDefaultDateForSelectedMonth = () => {
+    const now = new Date();
+    if (selectedMonth === now.getMonth() && selectedYear === now.getFullYear()) {
+      return getLocalDateString(now);
+    }
+    const maxDay = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+    const day = Math.min(now.getDate(), maxDay);
+    return `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  };
+
+  const [newDate, setNewDate] = useState(() => getLocalDateString(new Date()));
+
+  React.useEffect(() => {
+    setNewDate(getDefaultDateForSelectedMonth());
+  }, [selectedMonth, selectedYear]);
+
+  const [editingId, setEditingId] = useState(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editDate, setEditDate] = useState('');
+  
+  const [itemToDelete, setItemToDelete] = useState(null);
+
+  const [isManageModalOpen, setIsManageModalOpen] = useState(false);
 
   const handlePrevMonth = () => {
     if (selectedMonth === 0) {
@@ -98,8 +115,8 @@ const TrackingSidebar = ({ isOpen, onClose }) => {
   const groupedTransactions = useMemo(() => {
     const groups = {};
     currentMonthTransactions.forEach(t => {
-      const dateObj = new Date(t.date);
-      const dateKey = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
+      const dateKey = getLocalDateString(t.date);
+      if (!dateKey) return;
       if (!groups[dateKey]) {
         groups[dateKey] = [];
       }
@@ -111,12 +128,7 @@ const TrackingSidebar = ({ isOpen, onClose }) => {
 
     return sortedKeys.map(dateKey => ({
       dateKey,
-      label: new Date(dateKey + 'T00:00:00').toLocaleDateString('en-IN', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-      }),
+      label: formatLocalDateLabel(dateKey),
       transactions: groups[dateKey]
     }));
   }, [currentMonthTransactions]);
@@ -139,11 +151,30 @@ const TrackingSidebar = ({ isOpen, onClose }) => {
       await addIncomeCategory(finalCategory);
     }
     
+    let txnDate;
+    if (newDate) {
+      const parts = newDate.split('-').map(Number);
+      if (parts.length === 3) {
+        const [y, m, d] = parts;
+        const now = new Date();
+        // If chosen date is today, use current local time; otherwise use midday (12:00 PM) to avoid UTC rollover
+        if (y === now.getFullYear() && (m - 1) === now.getMonth() && d === now.getDate()) {
+          txnDate = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
+        } else {
+          txnDate = new Date(y, m - 1, d, 12, 0, 0);
+        }
+      } else {
+        txnDate = new Date();
+      }
+    } else {
+      txnDate = new Date();
+    }
+
     await addTransaction({
       type: addType,
       amount: Number(newAmount),
       category: finalCategory,
-      date: new Date(selectedYear, selectedMonth, new Date().getDate()) // Default to today within selected month
+      date: txnDate
     });
     
     setIsAdding(false);
@@ -151,22 +182,39 @@ const TrackingSidebar = ({ isOpen, onClose }) => {
     setNewCategory('');
     setNewCustomCategory('');
     setIsAddingNewCategory(false);
+    setNewDate(getDefaultDateForSelectedMonth());
   };
 
   const handleEditSubmit = async (e, id) => {
     e.preventDefault();
     if (!editAmount || !editCategory) return;
 
+    let updatedDate;
+    if (editDate) {
+      const parts = editDate.split('-').map(Number);
+      if (parts.length === 3) {
+        const [y, m, d] = parts;
+        updatedDate = new Date(y, m - 1, d, 12, 0, 0);
+      }
+    }
+
     // Find original transaction to compare
     const original = transactions.find(t => t._id === id);
-    if (original && Number(editAmount) === original.amount && editCategory === original.category) {
+    const origDateStr = original ? getLocalDateString(original.date) : '';
+    if (
+      original && 
+      Number(editAmount) === original.amount && 
+      editCategory === original.category && 
+      (!editDate || editDate === origDateStr)
+    ) {
       setEditingId(null);
       return;
     }
 
     await updateTransaction(id, {
       amount: Number(editAmount),
-      category: editCategory
+      category: editCategory,
+      ...(updatedDate && { date: updatedDate })
     });
     setEditingId(null);
   };
@@ -175,6 +223,7 @@ const TrackingSidebar = ({ isOpen, onClose }) => {
     setEditingId(transaction._id);
     setEditAmount(transaction.amount.toString());
     setEditCategory(transaction.category);
+    setEditDate(getLocalDateString(transaction.date));
   };
 
   const confirmDelete = async () => {
@@ -278,11 +327,11 @@ const TrackingSidebar = ({ isOpen, onClose }) => {
                           </div>
 
                           {editingId === transaction._id ? (
-                            <form onSubmit={(e) => handleEditSubmit(e, transaction._id)} className="flex items-center gap-2 flex-1">
+                            <form onSubmit={(e) => handleEditSubmit(e, transaction._id)} className="flex items-center gap-2 flex-1 flex-wrap sm:flex-nowrap">
                               <select 
                                 value={editCategory} 
                                 onChange={(e) => setEditCategory(e.target.value)} 
-                                className="flex-1 px-2 py-1 text-sm border-b-2 border-teal-500 bg-transparent dark:text-white outline-none" 
+                                className="flex-1 min-w-[100px] px-2 py-1 text-sm border-b-2 border-teal-500 bg-transparent dark:text-white outline-none" 
                                 required
                               >
                                 {isIncome 
@@ -290,10 +339,13 @@ const TrackingSidebar = ({ isOpen, onClose }) => {
                                   : expenseCategories.map(c => <option key={c} value={c}>{c}</option>)
                                 }
                               </select>
-                              <div className="w-24">
+                              <div className="w-20">
                                 <input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className="w-full px-2 py-1 text-sm border-b-2 border-teal-500 bg-transparent dark:text-white outline-none" required placeholder="Amount" />
                               </div>
-                              <div className="flex gap-1">
+                              <div className="w-28">
+                                <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="w-full px-1 py-1 text-xs border-b-2 border-teal-500 bg-transparent dark:text-white outline-none" required />
+                              </div>
+                              <div className="flex gap-1 shrink-0">
                                 <button type="submit" className="p-1 bg-teal-600 text-white rounded hover:bg-teal-700"><Check className="w-4 h-4" /></button>
                                 <button type="button" onClick={() => setEditingId(null)} className="p-1 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300"><X className="w-4 h-4" /></button>
                               </div>
@@ -363,16 +415,28 @@ const TrackingSidebar = ({ isOpen, onClose }) => {
 
               <form onSubmit={handleAddSubmit}>
                 <div className="space-y-3 mb-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Amount</label>
-                    <input
-                      type="number"
-                      value={newAmount}
-                      onChange={(e) => setNewAmount(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-teal-500 outline-none"
-                      placeholder="Enter amount"
-                      required
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Amount</label>
+                      <input
+                        type="number"
+                        value={newAmount}
+                        onChange={(e) => setNewAmount(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-teal-500 outline-none"
+                        placeholder="Enter amount"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Date</label>
+                      <input
+                        type="date"
+                        value={newDate}
+                        onChange={(e) => setNewDate(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-teal-500 outline-none"
+                        required
+                      />
+                    </div>
                   </div>
                   <div>
                     <div className="flex justify-between items-center mb-1">

@@ -1,10 +1,8 @@
 const API_BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
 
 const getHeaders = (isJson = true) => {
-  const token = localStorage.getItem('fin-dash-token');
   const headers = {};
   if (isJson) headers['Content-Type'] = 'application/json';
-  if (token) headers['Authorization'] = `Bearer ${token}`;
   return headers;
 };
 

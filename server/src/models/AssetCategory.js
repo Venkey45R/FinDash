@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { getSingleUserId } = require('../utils/singleUser');
 
 const entrySchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
@@ -54,7 +55,7 @@ const assetCategorySchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false,
     index: true,
   },
   name: { type: String, required: true, trim: true },
@@ -63,5 +64,11 @@ const assetCategorySchema = new mongoose.Schema({
   order: { type: Number, default: 0 },
   entries: [entrySchema],
 }, { timestamps: true });
+
+assetCategorySchema.pre('validate', async function() {
+  if (!this.userId) {
+    this.userId = await getSingleUserId();
+  }
+});
 
 module.exports = mongoose.model('AssetCategory', assetCategorySchema);

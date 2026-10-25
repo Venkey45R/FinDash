@@ -3,15 +3,18 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const IncomeCategory = require('../models/IncomeCategory');
-const User = require('../models/User');
+const { getSingleUserId } = require('../utils/singleUser');
 
 // --- Transactions ---
 
 // Get total transaction balance (income - expense)
 router.get('/balance', async (req, res) => {
   try {
+    const userId = req.userId || (await getSingleUserId());
+    const matchStage = userId ? [{ $match: { userId: new mongoose.Types.ObjectId(userId) } }] : [];
+
     const balanceResult = await Transaction.aggregate([
-      { $match: { userId: new mongoose.Types.ObjectId(req.userId) } },
+      ...matchStage,
       { 
         $group: { 
           _id: null, 
@@ -31,21 +34,22 @@ router.get('/balance', async (req, res) => {
   }
 });
 
-// Get all transactions for the user (with pagination)
+// Get all transactions (with pagination)
 router.get('/', async (req, res) => {
   try {
-
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 50;
     const skip = (page - 1) * limit;
 
-    const query = { userId: req.userId };
-    
+    const userId = req.userId || (await getSingleUserId());
+    const filter = userId ? { userId } : {};
+    const matchStage = userId ? [{ $match: { userId: new mongoose.Types.ObjectId(userId) } }] : [];
+
     const [transactions, total, balanceResult] = await Promise.all([
-      Transaction.find(query).sort({ date: -1 }).skip(skip).limit(limit),
-      Transaction.countDocuments(query),
+      Transaction.find(filter).sort({ date: -1 }).skip(skip).limit(limit),
+      Transaction.countDocuments(filter),
       Transaction.aggregate([
-        { $match: { userId: new mongoose.Types.ObjectId(req.userId) } },
+        ...matchStage,
         { 
           $group: { 
             _id: null, 
@@ -79,7 +83,6 @@ router.get('/', async (req, res) => {
 // Add a transaction
 router.post('/', async (req, res) => {
   try {
-
     const { type, amount, category, date } = req.body;
     
     if (!type || !category) {
@@ -90,8 +93,10 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ message: 'Amount must be a positive number' });
     }
 
+    const userId = req.userId || (await getSingleUserId());
+
     const transaction = new Transaction({
-      userId: req.userId,
+      userId,
       type,
       amount: numAmount,
       category,
@@ -101,6 +106,7 @@ router.post('/', async (req, res) => {
     await transaction.save();
     res.status(201).json(transaction);
   } catch (error) {
+    console.error('Error adding transaction:', error.message);
     res.status(500).json({ message: 'Server Error adding transaction' });
   }
 });
@@ -108,7 +114,7 @@ router.post('/', async (req, res) => {
 // Update a transaction
 router.put('/:id', async (req, res) => {
   try {
-    const transaction = await Transaction.findOne({ _id: req.params.id, userId: req.userId });
+    const transaction = await Transaction.findById(req.params.id);
     if (!transaction) {
       return res.status(404).json({ message: 'Transaction not found' });
     }
@@ -128,7 +134,7 @@ router.put('/:id', async (req, res) => {
 // Delete a transaction
 router.delete('/:id', async (req, res) => {
   try {
-    const transaction = await Transaction.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+    const transaction = await Transaction.findByIdAndDelete(req.params.id);
     if (!transaction) {
       return res.status(404).json({ message: 'Transaction not found' });
     }
@@ -143,7 +149,9 @@ router.delete('/:id', async (req, res) => {
 // Get all income categories
 router.get('/income-categories', async (req, res) => {
   try {
-    const categories = await IncomeCategory.find({ userId: req.userId });
+    const userId = req.userId || (await getSingleUserId());
+    const filter = userId ? { userId } : {};
+    const categories = await IncomeCategory.find(filter);
     res.json(categories);
   } catch (error) {
     res.status(500).json({ message: 'Server Error fetching income categories' });
@@ -154,16 +162,19 @@ router.get('/income-categories', async (req, res) => {
 router.post('/income-categories', async (req, res) => {
   try {
     const { name } = req.body;
-    if (!name) return res.status(400).json({ message: 'Name is required' });
+    if (!name || !name.trim()) return res.status(400).json({ message: 'Name is required' });
+
+    const userId = req.userId || (await getSingleUserId());
 
     const category = new IncomeCategory({
-      userId: req.userId,
-      name
+      userId,
+      name: name.trim()
     });
 
     await category.save();
     res.status(201).json(category);
   } catch (error) {
+    console.error('Error adding income category:', error.message);
     res.status(500).json({ message: 'Server Error adding income category' });
   }
 });
@@ -172,11 +183,11 @@ router.post('/income-categories', async (req, res) => {
 router.put('/income-categories/:id', async (req, res) => {
   try {
     const { name } = req.body;
-    if (!name) return res.status(400).json({ message: 'Name is required' });
+    if (!name || !name.trim()) return res.status(400).json({ message: 'Name is required' });
 
-    const category = await IncomeCategory.findOneAndUpdate(
-      { _id: req.params.id, userId: req.userId },
-      { name },
+    const category = await IncomeCategory.findByIdAndUpdate(
+      req.params.id,
+      { name: name.trim() },
       { new: true }
     );
     if (!category) return res.status(404).json({ message: 'Category not found' });
@@ -190,7 +201,7 @@ router.put('/income-categories/:id', async (req, res) => {
 // Delete an income category
 router.delete('/income-categories/:id', async (req, res) => {
   try {
-    const category = await IncomeCategory.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+    const category = await IncomeCategory.findByIdAndDelete(req.params.id);
     if (!category) return res.status(404).json({ message: 'Category not found' });
 
     res.json({ message: 'Category deleted' });

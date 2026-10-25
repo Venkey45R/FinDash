@@ -1,0 +1,29 @@
+{
+  "cookies": [
+    {
+      "name": "g_state",
+      "value": "{\"i_l\":0,\"i_ll\":1790942445564,\"i_b\":\"uFvFfXbAeQ961UnM0SFC2f5ZYqJDP+m3fqfvkv3KUmA\",\"i_e\":{\"enable_itp_optimization\":24},\"i_et\":1790942445564}",
+      "domain": "fin-dash-beta-weld.vercel.app",
+      "path": "/",
+      "expires": 1806494445,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://fin-dash-beta-weld.vercel.app",
+      "localStorage": [
+        {
+          "name": "fin-dash-theme",
+          "value": "light"
+        },
+        {
+          "name": "fin-dash-token",
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTc4MGQ1MzJhYzQwYTQwOTczZWIwMTgiLCJpYXQiOjE3OTA5NDI0NDgsImV4cCI6MTc5MTU0NzI0OH0.txjwrsUzFS8Pf1fd6K0xmrrthHpJHgDciIzMzUffBEE"
+        }
+      ]
+    }
+  ]
+}

@@ -32,3 +32,10 @@ server/.env
 # Test/scratch scripts with API keys
 test-gemini.cjs
 test-gemini-models.cjs
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
