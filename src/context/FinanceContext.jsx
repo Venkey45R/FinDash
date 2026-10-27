@@ -172,6 +172,18 @@ export const FinanceProvider = ({ children }) => {
           localStorage.removeItem('pfd_state_v2');
         } catch { /* ignore */ }
 
+        // ── Step 0: Pre-populate from cache using last known userId ──
+        // This gives an instant render while the API call is in-flight.
+        // We persist the last userId in localStorage so we can use it here.
+        let lastUserId = null;
+        try { lastUserId = localStorage.getItem('pfd_last_user_id'); } catch { /* ignore */ }
+        if (lastUserId) {
+          const earlyCache = await loadState(lastUserId);
+          if (earlyCache) {
+            dispatch({ type: SET_DATA, payload: earlyCache });
+          }
+        }
+
         // ── Step 1: Identify the logged-in user first ──
         // We intentionally do NOT load the IDB cache before knowing the user.
         // This prevents a previous user's cached data from briefly flashing
@@ -188,10 +200,18 @@ export const FinanceProvider = ({ children }) => {
 
         const userId = userData?._id;
 
+        // Persist userId so we can pre-populate on the next page load
+        if (userId) {
+          try { localStorage.setItem('pfd_last_user_id', userId); } catch { /* ignore */ }
+        }
+
         // ── Step 2: Load this user's scoped IDB cache for instant render ──
-        const cached = await loadState(userId);
-        if (cached) {
-          dispatch({ type: SET_DATA, payload: cached });
+        // Only needed if we didn't already load it in step 0 (different user)
+        if (!lastUserId || lastUserId !== userId) {
+          const cached = await loadState(userId);
+          if (cached) {
+            dispatch({ type: SET_DATA, payload: cached });
+          }
         }
 
         // ── Step 3: Fetch remaining fresh data in parallel ──
@@ -217,6 +237,7 @@ export const FinanceProvider = ({ children }) => {
           await saveState(freshState, userId);
         } catch (apiErr) {
           console.warn('Backend fetch failed or offline, falling back to local cached/default state:', apiErr.message);
+          const cached = await loadState(userId);
           if (!cached) {
             dispatch({ type: SET_DATA, payload: defaultFallbackState });
             await saveState(defaultFallbackState, userId);
@@ -652,6 +673,10 @@ export const FinanceProvider = ({ children }) => {
         if (result.categories) {
           dispatch({ type: SET_ASSET_CATEGORIES, payload: result.categories });
         }
+        // Update syncStatus in state if server returned it (manual sync response)
+        if (result.syncStatus) {
+          dispatch({ type: SET_DATA, payload: { syncStatus: result.syncStatus } });
+        }
         try {
           const freshHistory = await fetchNetWorthHistory();
           if (freshHistory && Array.isArray(freshHistory)) {
@@ -661,7 +686,7 @@ export const FinanceProvider = ({ children }) => {
         const count = result.syncResult?.totalUpdated || 0;
         showToast(
           isAutoTrigger
-            ? `[3:45 PM Auto-Sync] Updated ${count} mutual funds & stocks!`
+            ? `[Auto-Sync] Updated ${count} mutual funds & stocks!`
             : `Synced market prices & NAVs! ${count} holdings updated.`
         );
         return result;
@@ -727,7 +752,7 @@ export const FinanceProvider = ({ children }) => {
         dispatch({ type: SET_ASSET_CATEGORIES, payload: updatedCategories });
         showToast(
           isAutoTrigger
-            ? `[3:45 PM Auto-Sync] Updated ${localUpdatedCount} mutual funds & stocks!`
+            ? `[Auto-Sync] Updated ${localUpdatedCount} mutual funds & stocks!`
             : `Synced market prices & NAVs! ${localUpdatedCount} holdings updated.`
         );
         return { success: true, totalUpdated: localUpdatedCount };
@@ -751,24 +776,41 @@ export const FinanceProvider = ({ children }) => {
     let timerId = null;
 
     const scheduleNext345PM = () => {
+      // Get the current time in IST reliably using Intl (works correctly regardless of
+      // the browser/system timezone — avoids manual offset arithmetic bugs)
       const now = new Date();
-      // IST offset is UTC+5:30
-      const utcNow = now.getTime() + now.getTimezoneOffset() * 60000;
-      const istNow = new Date(utcNow + 5.5 * 3600000);
+      const istParts = new Intl.DateTimeFormat('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        hour: 'numeric', minute: 'numeric', second: 'numeric',
+        hour12: false,
+      }).formatToParts(now);
 
-      const targetIST = new Date(istNow);
-      targetIST.setHours(15, 45, 0, 0);
+      const istH = parseInt(istParts.find(p => p.type === 'hour')?.value || '0', 10);
+      const istM = parseInt(istParts.find(p => p.type === 'minute')?.value || '0', 10);
+      const istS = parseInt(istParts.find(p => p.type === 'second')?.value || '0', 10);
 
-      // If already past 3:45 PM IST today, set for tomorrow 3:45 PM
-      if (istNow.getTime() >= targetIST.getTime()) {
-        targetIST.setDate(targetIST.getDate() + 1);
+      // Seconds elapsed since midnight IST today
+      const secondsIntoDay = istH * 3600 + istM * 60 + istS;
+      // 3:45 PM IST = 15*3600 + 45*60 = 56700 seconds since midnight
+      const target = 15 * 3600 + 45 * 60;
+
+      let secondsUntilTarget = target - secondsIntoDay;
+      if (secondsUntilTarget <= 0) {
+        // Already past 3:45 PM IST today — schedule for tomorrow
+        secondsUntilTarget += 24 * 3600;
       }
 
-      const delayMs = targetIST.getTime() - istNow.getTime();
+      const delayMs = secondsUntilTarget * 1000;
+      console.log(`[FinanceContext] Next 3:45 PM IST auto-sync in ${Math.round(delayMs / 60000)} minutes.`);
 
       timerId = setTimeout(async () => {
         console.log('[FinanceContext] 3:45 PM IST reached! Auto-syncing mutual fund NAVs and stock prices...');
         await syncPricesRef.current(true);
+        // After auto-sync, refresh syncStatus from server
+        try {
+          const freshStatus = await apiFetchSyncStatus();
+          if (freshStatus) dispatch({ type: SET_DATA, payload: { syncStatus: freshStatus } });
+        } catch { /* ignore */ }
         // Schedule next day
         scheduleNext345PM();
       }, Math.max(delayMs, 1000));

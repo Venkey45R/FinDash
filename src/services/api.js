@@ -20,6 +20,24 @@ export const fetchNetWorthHistory = async () => {
   return res.json();
 };
 
+/**
+ * Fetch historical index data for benchmark comparison.
+ * @param {string} index - One of: NIFTY50, NIFTY500, SENSEX
+ * @param {string} [from] - YYYY-MM-DD start date (optional)
+ * @param {string} [to]   - YYYY-MM-DD end date   (optional)
+ */
+export const fetchBenchmarkHistory = async (index = 'NIFTY50', from = '', to = '') => {
+  const params = new URLSearchParams({ index });
+  if (from) params.append('from', from);
+  if (to) params.append('to', to);
+  const res = await fetch(`${API_BASE}/dashboard/benchmark-history?${params.toString()}`, {
+    headers: getHeaders(false),
+  });
+  if (!res.ok) throw new Error('Failed to fetch benchmark history');
+  return res.json();
+};
+
+
 // ─── Instruments Search (V3) ───
 
 export const searchInstruments = async (query = '', type = '') => {

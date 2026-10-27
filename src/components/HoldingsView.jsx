@@ -37,7 +37,7 @@ const subCategoryIcons = {
 };
 
 const HoldingsView = () => {
-  const { assetCategories, updateEntry, deleteEntry, syncPrices, syncingPrices, showToast } = useFinance();
+  const { assetCategories, updateEntry, deleteEntry, syncPrices, syncingPrices, showToast, syncStatus } = useFinance();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [tableModalState, setTableModalState] = useState({
@@ -113,7 +113,9 @@ const HoldingsView = () => {
               Holdings & Investments
             </h3>
             <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-              Last on: Today
+              {syncStatus?.lastSync
+                ? `Last sync: ${new Date(syncStatus.lastSync).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                : 'Auto-syncs at 3:45 PM IST'}
             </span>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">

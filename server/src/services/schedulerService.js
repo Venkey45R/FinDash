@@ -1,9 +1,46 @@
 const cron = require('node-cron');
 const { syncAllAssetPrices, processDailySips } = require('./priceService');
 const { recordAllUsersDailyNetWorthSnapshot } = require('./netWorthService');
+const SyncMeta = require('../models/SyncMeta');
 
-let lastSyncTimestamp = null;
-let lastSyncResult = null;
+// ─── In-memory cache (used while DB is not yet connected) ───
+let _lastSyncTimestamp = null;
+let _lastSyncResult = null;
+
+/**
+ * Persist the last sync result to DB so it survives server restarts.
+ * Falls back gracefully if DB is unavailable.
+ */
+async function _persistSyncResult(timestamp, result) {
+  _lastSyncTimestamp = timestamp;
+  _lastSyncResult = result;
+  try {
+    await SyncMeta.findOneAndUpdate(
+      { key: 'global' },
+      { lastSyncTimestamp: timestamp, lastSyncResult: result },
+      { upsert: true, new: true }
+    );
+  } catch (e) {
+    console.warn('[SchedulerService] Could not persist sync meta to DB:', e.message);
+  }
+}
+
+/**
+ * Load the last sync timestamp from DB (called once on startup).
+ * Populates the in-memory cache so getSyncStatus() works immediately.
+ */
+async function _loadPersistedSyncMeta() {
+  try {
+    const meta = await SyncMeta.findOne({ key: 'global' });
+    if (meta?.lastSyncTimestamp) {
+      _lastSyncTimestamp = new Date(meta.lastSyncTimestamp);
+      _lastSyncResult = meta.lastSyncResult || null;
+      console.log(`[SchedulerService] Loaded persisted lastSync: ${_lastSyncTimestamp.toISOString()}`);
+    }
+  } catch (e) {
+    console.warn('[SchedulerService] Could not load persisted sync meta:', e.message);
+  }
+}
 
 /**
  * Initialize daily schedulers:
@@ -13,12 +50,13 @@ let lastSyncResult = null;
 function initPriceScheduler() {
   console.log('[SchedulerService] Initializing daily schedulers (3:45 PM price sync + 4:00 PM net worth snapshot)...');
 
-  // Ensure today's baseline snapshot exists on startup
+  // Ensure today's baseline snapshot exists on startup + load persisted sync meta
   setTimeout(async () => {
     try {
+      await _loadPersistedSyncMeta();
       await recordAllUsersDailyNetWorthSnapshot();
     } catch (e) {
-      console.warn('[SchedulerService] Initial net worth snapshot recording deferred:', e.message);
+      console.warn('[SchedulerService] Initial startup tasks deferred:', e.message);
     }
   }, 2000);
 
@@ -30,8 +68,7 @@ function initPriceScheduler() {
       try {
         const result = await syncAllAssetPrices();
         await processDailySips(); // Automatically invest SIP amounts if it's the right day
-        lastSyncTimestamp = new Date();
-        lastSyncResult = result;
+        await _persistSyncResult(new Date(), result);
         console.log(`[SchedulerService] 3:45 PM price sync succeeded. Updated ${result.totalUpdated} holdings.`);
       } catch (err) {
         console.error('[SchedulerService] Error running 3:45 PM price sync:', err);
@@ -69,8 +106,8 @@ async function triggerManualSync(userId = null) {
   const { recordDailyNetWorthSnapshot } = require('./netWorthService');
   const result = await syncAllAssetPrices();
   await processDailySips();
-  lastSyncTimestamp = new Date();
-  lastSyncResult = result;
+  const now = new Date();
+  await _persistSyncResult(now, result);
   if (userId) {
     await recordDailyNetWorthSnapshot(userId);
   } else {
@@ -96,9 +133,9 @@ function getSyncStatus() {
   const next345PMUtc = new Date(next345PM.getTime() - istOffsetMs + (new Date().getTimezoneOffset() * 60 * 1000));
 
   return {
-    lastSync: lastSyncTimestamp || null,
+    lastSync: _lastSyncTimestamp ? _lastSyncTimestamp.toISOString() : null,
     nextScheduledSync: next345PMUtc.toISOString(),
-    lastResult: lastSyncResult,
+    lastResult: _lastSyncResult,
     schedule: 'Daily at 3:45 PM IST (prices) + 4:00 PM IST (net worth)',
   };
 }

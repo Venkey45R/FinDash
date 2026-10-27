@@ -261,9 +261,9 @@ function App() {
         <TransactionProvider>
           <BudgetProvider>
             <Routes>
-              {/* All routes go directly to dashboard — no login needed */}
-              <Route path="/dashboard" element={<DashboardContent />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              {/* Serve dashboard at root — avoids 404 on hard refresh with BrowserRouter */}
+              <Route path="/" element={<DashboardContent />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </BudgetProvider>
         </TransactionProvider>

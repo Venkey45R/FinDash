@@ -70,10 +70,13 @@ router.post('/sync-prices', async (req, res) => {
     const filter = userId ? { userId } : {};
     const syncResult = await triggerManualSync(userId);
     const categories = await AssetCategory.find(filter).sort({ order: 1 });
+    // Return the freshly updated syncStatus so the frontend can update its state immediately
+    const syncStatus = getSyncStatus();
     res.json({
       success: true,
       categories,
       syncResult,
+      syncStatus,
     });
   } catch (error) {
     console.error('Error syncing asset prices:', error.message);
