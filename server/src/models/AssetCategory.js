@@ -38,6 +38,7 @@ const entrySchema = new mongoose.Schema({
   isSip: { type: Boolean, default: false },
   sipAmount: { type: Number, default: 0 },
   sipDate: { type: Number, default: 1 },
+  lastSipProcessedMonth: { type: String, default: '' },
 
   // Market-derived metrics (populated when market ticks are ingested)
   latestPrice: { type: Number, default: null },

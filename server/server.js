@@ -50,10 +50,9 @@ app.get('/api/health', (req, res) => {
 });
 
 const startServer = async () => {
-  const connected = await connectDB();
-  if (connected) {
-    initPriceScheduler();
-  }
+  await connectDB();
+  // Always initialize price scheduler so daily cron jobs are registered even if DB reconnects
+  initPriceScheduler();
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });

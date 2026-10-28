@@ -86,7 +86,25 @@ const Header = () => {
     <header className="flex items-center justify-between px-4 sm:px-8 py-3.5 sm:py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 sticky top-0 z-50 transition-colors duration-300">
       {/* Left: Logo + Nav */}
       <div className="flex items-center gap-6 lg:gap-10">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Fin Dash</h1>
+        <div className="flex items-center gap-2.5">
+          {/* Logo icon */}
+          <svg width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+            <defs>
+              <linearGradient id="hdr-bg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#0d9488"/>
+                <stop offset="100%" stopColor="#059669"/>
+              </linearGradient>
+              <linearGradient id="hdr-line" x1="8" y1="34" x2="40" y2="10" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.7"/>
+                <stop offset="100%" stopColor="#ffffff"/>
+              </linearGradient>
+            </defs>
+            <rect width="48" height="48" rx="12" fill="url(#hdr-bg)"/>
+            <polyline points="10,34 18,26 24,30 32,18 38,12" stroke="url(#hdr-line)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <polyline points="33,12 38,12 38,17" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+          </svg>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">FinDash</h1>
+        </div>
         <nav className="hidden md:flex items-center gap-6">
           {navLinks.map((link) => (
             <a

@@ -42,23 +42,41 @@ async function _loadPersistedSyncMeta() {
   }
 }
 
+const mongoose = require('mongoose');
+
+let _schedulerInitialized = false;
+
 /**
  * Initialize daily schedulers:
  *   - 3:45 PM IST: Sync market prices & NAVs for holdings/investments
  *   - 4:00 PM IST: Record daily net worth snapshot (uses freshly synced prices)
  */
 function initPriceScheduler() {
-  console.log('[SchedulerService] Initializing daily schedulers (3:45 PM price sync + 4:00 PM net worth snapshot)...');
+  if (_schedulerInitialized) {
+    return;
+  }
+  _schedulerInitialized = true;
+  console.log('[SchedulerService] Initializing daily schedulers (3:45 PM IST price sync + 4:00 PM IST net worth snapshot)...');
 
-  // Ensure today's baseline snapshot exists on startup + load persisted sync meta
-  setTimeout(async () => {
+  const runStartupTasks = async () => {
     try {
-      await _loadPersistedSyncMeta();
-      await recordAllUsersDailyNetWorthSnapshot();
+      if (mongoose.connection.readyState === 1) {
+        await _loadPersistedSyncMeta();
+        await recordAllUsersDailyNetWorthSnapshot();
+      }
     } catch (e) {
       console.warn('[SchedulerService] Initial startup tasks deferred:', e.message);
     }
-  }, 2000);
+  };
+
+  // Run on startup or when DB connects
+  setTimeout(runStartupTasks, 2000);
+  if (mongoose.connection.readyState !== 1) {
+    mongoose.connection.once('connected', () => {
+      console.log('[SchedulerService] MongoDB connected. Running deferred startup tasks...');
+      setTimeout(runStartupTasks, 1000);
+    });
+  }
 
   // ─── 3:45 PM IST — Sync market prices & NAVs ───
   cron.schedule(
@@ -117,24 +135,25 @@ async function triggerManualSync(userId = null) {
 }
 
 /**
- * Get current sync status with IST-aware next sync calculation.
+ * Get current sync status with robust UTC-based next sync calculation (immune to server locale/DST bugs).
+ * 3:45 PM IST is exactly 10:15:00 UTC every day.
  */
 function getSyncStatus() {
-  // Calculate next 3:45 PM IST for price sync
-  const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-  const next345PM = new Date(nowIST);
-  next345PM.setHours(15, 45, 0, 0);
-  if (nowIST.getHours() > 15 || (nowIST.getHours() === 15 && nowIST.getMinutes() >= 45)) {
-    next345PM.setDate(next345PM.getDate() + 1);
-  }
+  const now = new Date();
+  const todayTargetUtc = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    10, 15, 0, 0
+  ));
 
-  // Convert back to a proper ISO timestamp by computing IST offset (UTC+5:30)
-  const istOffsetMs = 5.5 * 60 * 60 * 1000;
-  const next345PMUtc = new Date(next345PM.getTime() - istOffsetMs + (new Date().getTimezoneOffset() * 60 * 1000));
+  const nextSyncUtc = now.getTime() >= todayTargetUtc.getTime()
+    ? new Date(todayTargetUtc.getTime() + 24 * 60 * 60 * 1000)
+    : todayTargetUtc;
 
   return {
     lastSync: _lastSyncTimestamp ? _lastSyncTimestamp.toISOString() : null,
-    nextScheduledSync: next345PMUtc.toISOString(),
+    nextScheduledSync: nextSyncUtc.toISOString(),
     lastResult: _lastSyncResult,
     schedule: 'Daily at 3:45 PM IST (prices) + 4:00 PM IST (net worth)',
   };
